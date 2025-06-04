@@ -134,7 +134,7 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
                     </div>
                 </div>
 
-                <?php if ($userId !== $_SESSION["id"]): ?>
+                <?php if ((int) $userId != (int) $_SESSION["id"]): ?>
                     <?php
                     // Verificar se o utilizador autenticado já segue o perfil visitado
                     $sqlCheckFollow = "SELECT * FROM seguidores WHERE id_seguidor = ? AND id_seguido = ?";

@@ -20,6 +20,39 @@ if (!empty($_SESSION)) {
     <link rel="icon" type="image/x-icon" href="images/favicon/favicon_orange.png">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Estilos adicionais para os links de perfil */
+        .profile-link {
+            text-decoration: none;
+            color: var(--text-light);
+            display: inline-block;
+            transition: color 0.2s ease;
+        }
+
+        .profile-link:hover {
+            color: var(--color-primary);
+            text-decoration: underline;
+        }
+
+        .post-info .profile-link h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .modal-post .profile-link {
+            color: var(--text-light);
+        }
+
+        .comment-content .profile-link {
+            color: var(--text-light);
+            font-weight: 600;
+        }
+
+        .comment-content .profile-link:hover {
+            color: var(--color-primary);
+        }
+    </style>
 </head>
 
 <body>
@@ -29,25 +62,16 @@ if (!empty($_SESSION)) {
     <!-- Comments Modal -->
     <div id="commentsModal" class="modal-overlay">
         <div class="comment-modal">
-            <div class="modal-post">
-                <!-- Post content will be cloned here -->
+            <div class="modal-post" id="modalPostContent">
+                <!-- Conteúdo será preenchido via JS -->
             </div>
             <div class="modal-comments">
-                <div class="comments-list">
-                    <!-- Example comments for visual testing -->
-                    <div class="comment-item">
-                        <img src="images/perfil/default-profile.jpg" alt="User" class="comment-avatar">
-                        <div class="comment-content">
-                            <div class="comment-header">
-                                <span class="comment-username">John Doe</span>
-                                <span class="comment-time">2 hours ago</span>
-                            </div>
-                            <p class="comment-text">This is an example comment!</p>
-                        </div>
-                    </div>
+                <div class="comments-list" id="commentsList">
+                    <!-- Comentários serão carregados aqui -->
                 </div>
-                <form class="comment-form">
-                    <input type="text" class="comment-input" placeholder="Add a comment...">
+                <form class="comment-form" id="commentForm">
+                    <input type="hidden" id="currentPostId" value="">
+                    <input type="text" class="comment-input" id="commentInput" placeholder="Add a comment..." required>
                     <button type="submit" class="comment-submit">Post</button>
                 </form>
             </div>
@@ -103,12 +127,23 @@ if (!empty($_SESSION)) {
                 <?php
                 include_once("../backend/ligabd.php");
 
-                $sql = "SELECT p.id_publicacao, p.conteudo, p.data_criacao, p.likes, u.nick, pr.foto_perfil, pr.ocupacao 
-                    FROM publicacoes p
-                    JOIN utilizadores u ON p.id_utilizador = u.id
-                    LEFT JOIN perfis pr ON u.id = pr.id_utilizador
-                    WHERE p.deletado_em = '0000-00-00 00:00:00'
-                    ORDER BY p.data_criacao DESC";
+                // Função para contar comentários
+                function getCommentCount($con, $postId)
+                {
+                    $sql = "SELECT COUNT(*) as count FROM comentarios WHERE id_publicacao = $postId";
+                    $result = mysqli_query($con, $sql);
+                    $data = mysqli_fetch_assoc($result);
+                    return $data['count'];
+                }
+
+                $sql = "SELECT p.id_publicacao, p.conteudo, p.data_criacao, p.likes, 
+                       u.id AS id_utilizador, u.nick, 
+                       pr.foto_perfil, pr.ocupacao 
+                FROM publicacoes p
+                JOIN utilizadores u ON p.id_utilizador = u.id
+                LEFT JOIN perfis pr ON u.id = pr.id_utilizador
+                WHERE p.deletado_em = '0000-00-00 00:00:00'
+                ORDER BY p.data_criacao DESC";
 
                 $resultado = mysqli_query($con, $sql);
 
@@ -116,14 +151,14 @@ if (!empty($_SESSION)) {
                     while ($linha = mysqli_fetch_assoc($resultado)) {
                         $foto = $linha['foto_perfil'] ?: 'default-profile.jpg';
                         $ocupacao = $linha['ocupacao'] ?: 'Utilizador';
+                        $publicacaoId = $linha['id_publicacao'];
 
                         // Verificar se o usuário logado já deu like
                         $likedClass = '';
                         if (isset($_SESSION['id'])) {
                             $userId = $_SESSION['id'];
-                            $publicacaoId = $linha['id_publicacao'];
                             $checkSql = "SELECT * FROM publicacao_likes 
-                     WHERE publicacao_id = $publicacaoId AND utilizador_id = $userId";
+                             WHERE publicacao_id = $publicacaoId AND utilizador_id = $userId";
                             $checkResult = mysqli_query($con, $checkSql);
                             if (mysqli_num_rows($checkResult) > 0) {
                                 $likedClass = 'liked';
@@ -133,9 +168,14 @@ if (!empty($_SESSION)) {
 
                         <article class="post" data-post-id="<?php echo $publicacaoId; ?>">
                             <div class="post-header">
-                                <img src="images/perfil/<?php echo htmlspecialchars($foto); ?>" alt="User" class="profile-pic">
+                                <a href="perfil.php?id=<?php echo $linha['id_utilizador']; ?>">
+                                    <img src="images/perfil/<?php echo htmlspecialchars($foto); ?>" alt="User"
+                                        class="profile-pic">
+                                </a>
                                 <div class="post-info">
-                                    <h3><?php echo htmlspecialchars($linha['nick']); ?></h3>
+                                    <a href="perfil.php?id=<?php echo $linha['id_utilizador']; ?>" class="profile-link">
+                                        <h3><?php echo htmlspecialchars($linha['nick']); ?></h3>
+                                    </a>
                                     <p><?php echo htmlspecialchars($ocupacao); ?></p>
                                     <span
                                         class="timestamp"><?php echo date('d-m-Y H:i', strtotime($linha['data_criacao'])); ?></span>
@@ -150,9 +190,10 @@ if (!empty($_SESSION)) {
                                     <i class="fas fa-thumbs-up"></i>
                                     <span class="like-count"><?php echo $linha['likes']; ?></span>
                                 </button>
-                                <button class="comment-btn" onclick="openCommentsModal(this)">
+                                <button class="comment-btn" onclick="openCommentsModal(<?php echo $linha['id_publicacao']; ?>)">
                                     <i class="fas fa-comment"></i>
-                                    
+                                    <span
+                                        class="comment-count"><?php echo getCommentCount($con, $linha['id_publicacao']); ?></span>
                                 </button>
                                 <button><i class="fas fa-share"></i> Share</button>
                                 <button><i class="fas fa-bookmark"></i> Save</button>
@@ -199,40 +240,132 @@ if (!empty($_SESSION)) {
             });
         });
 
-        // Comments Modal functionality
+        // Referências para o modal e o botão de fechar
         const modal = document.getElementById('commentsModal');
-        const modalPost = modal.querySelector('.modal-post');
         const closeButton = modal.querySelector('.close-button');
 
-        function openCommentsModal(button) {
-            const post = button.closest('.post');
-            const postContent = post.querySelector('.post-header').outerHTML +
-                post.querySelector('.post-content').outerHTML;
+        // Função para fechar o modal
+        function closeModal() {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
 
-            modalPost.innerHTML = postContent;
+        // Evento para o botão de fechar
+        closeButton.addEventListener('click', closeModal);
+
+        // Fechar modal ao clicar fora
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        // Variável global para armazenar o ID da publicação atual
+        let currentPostId = null;
+
+        // Função para abrir o modal de comentários
+        // Atualize a função openCommentsModal:
+        function openCommentsModal(postId) {
+            currentPostId = postId;
+
+            fetch(`../backend/get_post.php?id=${postId}`)
+                .then(response => response.json())
+                .then(post => {
+                    const dataCriacao = new Date(post.data_criacao);
+                    const dataFormatada = `${dataCriacao.getDate().toString().padStart(2, '0')}-${(dataCriacao.getMonth() + 1).toString().padStart(2, '0')}-${dataCriacao.getFullYear()} ${dataCriacao.getHours().toString().padStart(2, '0')}:${dataCriacao.getMinutes().toString().padStart(2, '0')}`;
+
+                    // Adicione a classe 'post-content' para manter a formatação
+                    document.getElementById('modalPostContent').innerHTML = `
+        <div class="post">
+          <div class="post-header">
+            <a href="perfil.php?id=${post.id_utilizador}">
+              <img src="images/perfil/${post.foto_perfil || 'default-profile.jpg'}" alt="User" class="profile-pic">
+            </a>
+            <div class="post-info">
+              <a href="perfil.php?id=${post.id_utilizador}" class="profile-link">
+                <h3>${post.nick}</h3>
+              </a>
+              <p>${post.ocupacao || 'Utilizador'}</p>
+              <span class="timestamp">${dataFormatada}</span>
+            </div>
+          </div>
+          <div class="post-content">
+            <p>${post.conteudo.replace(/\n/g, '<br>')}</p> <!-- Mantém quebras de linha -->
+          </div>
+        </div>
+      `;
+
+                    loadComments(postId);
+                });
+
+            document.getElementById('currentPostId').value = postId;
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
         }
 
-        closeButton.addEventListener('click', () => {
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
-        });
+        // Função para carregar comentários
+        function loadComments(postId) {
+            fetch(`../backend/get_comments.php?post_id=${postId}`)
+                .then(response => response.json())
+                .then(comments => {
+                    const commentsList = document.getElementById('commentsList');
+                    commentsList.innerHTML = '';
 
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.style.display = 'none';
-                document.body.style.overflow = 'auto';
-            }
-        });
+                    comments.forEach(comment => {
+                        // Formatar a data do comentário
+                        const dataComentario = new Date(comment.data);
+                        const dataComentarioFormatada = `${dataComentario.getDate().toString().padStart(2, '0')}-${(dataComentario.getMonth() + 1).toString().padStart(2, '0')}-${dataComentario.getFullYear()} ${dataComentario.getHours().toString().padStart(2, '0')}:${dataComentario.getMinutes().toString().padStart(2, '0')}`;
 
-        // Prevent form submission (for now)
-        modal.querySelector('.comment-form').addEventListener('submit', (e) => {
+                        const commentItem = document.createElement('div');
+                        commentItem.className = 'comment-item';
+                        commentItem.innerHTML = `
+                            <a href="perfil.php?id=${comment.utilizador_id}">
+                                <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
+                            </a>
+                            <div class="comment-content">
+                                <div class="comment-header">
+                                    <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
+                                        <span class="comment-username">${comment.nick}</span>
+                                    </a>
+                                    <span class="comment-time">${dataComentarioFormatada}</span>
+                                </div>
+                                <p class="comment-text">${comment.conteudo}</p>
+                            </div>
+                        `;
+                        commentsList.appendChild(commentItem);
+                    });
+                });
+        }
+
+        // Envio de novo comentário
+        document.getElementById('commentForm').addEventListener('submit', function (e) {
             e.preventDefault();
-            const input = e.target.querySelector('.comment-input');
-            if (input.value.trim()) {
-                // Here you'll add the backend integration later
-                input.value = '';
+
+            const commentInput = document.getElementById('commentInput');
+            const content = commentInput.value.trim();
+
+            if (content && currentPostId) {
+                const formData = new FormData();
+                formData.append('post_id', currentPostId);
+                formData.append('content', content);
+
+                fetch('../backend/add_comment.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.success) {
+                            commentInput.value = '';
+                            loadComments(currentPostId);
+
+                            // Atualiza contador de comentários
+                            const commentCount = document.querySelector(`.comment-btn[onclick*="${currentPostId}"] .comment-count`);
+                            if (commentCount) {
+                                commentCount.textContent = parseInt(commentCount.textContent) + 1;
+                            }
+                        }
+                    });
             }
         });
     </script>
