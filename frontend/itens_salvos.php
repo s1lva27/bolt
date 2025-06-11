@@ -1,6 +1,23 @@
-<?php session_start();
+<?php
+// itens_salvos.php
+session_start();
 include "../backend/ligabd.php";
 
+if (!isset($_SESSION["id"])) {
+    header("Location: login.php");
+    exit;
+}
+
+// Função para contar comentários
+function getCommentCount($con, $postId)
+{
+    $sql = "SELECT COUNT(*) as count FROM comentarios WHERE id_publicacao = $postId";
+    $result = mysqli_query($con, $sql);
+    $data = mysqli_fetch_assoc($result);
+    return $data['count'];
+}
+
+// Função para verificar se o post está salvo
 function isPostSaved($con, $userId, $postId)
 {
     $sql = "SELECT * FROM publicacao_salvas
@@ -9,57 +26,58 @@ function isPostSaved($con, $userId, $postId)
     return mysqli_num_rows($result) > 0;
 }
 
-
-if (!empty($_SESSION)) {
-    $userId = $_SESSION["id"];
-    $sqlPerfil = "SELECT * FROM perfis WHERE id_utilizador = $userId";
-    $resultPerfil = mysqli_query($con, $sqlPerfil);
-    $perfilData = mysqli_fetch_assoc($resultPerfil);
-}
+$userId = $_SESSION["id"];
+$sqlPerfil = "SELECT * FROM perfis WHERE id_utilizador = $userId";
+$resultPerfil = mysqli_query($con, $sqlPerfil);
+$perfilData = mysqli_fetch_assoc($resultPerfil);
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orange</title>
+    <title>Itens Salvos - Orange</title>
     <link rel="stylesheet" href="css/style_index.css">
     <link rel="stylesheet" href="css/app.css">
     <link rel="icon" type="image/x-icon" href="images/favicon/favicon_orange.png">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* Estilos adicionais para os links de perfil */
-        .profile-link {
-            text-decoration: none;
-            color: var(--text-light);
-            display: inline-block;
-            transition: color 0.2s ease;
+        .saved-posts-header {
+            padding: var(--space-lg);
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-xl);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
         }
 
-        .profile-link:hover {
+        .saved-posts-header i {
+            font-size: 1.5rem;
             color: var(--color-primary);
-            text-decoration: underline;
         }
 
-        .post-info .profile-link h3 {
+        .saved-posts-header h2 {
             margin: 0;
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
-
-        .modal-post .profile-link {
             color: var(--text-light);
         }
 
-        .comment-content .profile-link {
-            color: var(--text-light);
-            font-weight: 600;
+        .post {
+            transition: all 0.3s ease;
         }
 
-        .comment-content .profile-link:hover {
-            color: var(--color-primary);
+        .post.removing {
+            transform: translateX(-100%);
+            opacity: 0;
+            height: 0;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
         }
     </style>
 </head>
@@ -71,13 +89,9 @@ if (!empty($_SESSION)) {
     <!-- Comments Modal -->
     <div id="commentsModal" class="modal-overlay">
         <div class="comment-modal">
-            <div class="modal-post" id="modalPostContent">
-                <!-- Conteúdo será preenchido via JS -->
-            </div>
+            <div class="modal-post" id="modalPostContent"></div>
             <div class="modal-comments">
-                <div class="comments-list" id="commentsList">
-                    <!-- Comentários serão carregados aqui -->
-                </div>
+                <div class="comments-list" id="commentsList"></div>
                 <form class="comment-form" id="commentForm">
                     <input type="hidden" id="currentPostId" value="">
                     <input type="text" class="comment-input" id="commentInput" placeholder="Add a comment..." required>
@@ -96,13 +110,14 @@ if (!empty($_SESSION)) {
         <aside class="sidebar">
             <nav>
                 <ul>
-                    <li><a href="#" class="active"><i class="fas fa-home"></i> <span>Home</span></a></li>
+                    <li><a href="index.php"><i class="fas fa-home"></i> <span>Home</span></a></li>
                     <li><a href="perfil.php"><i class="fas fa-user"></i> <span>Perfil</span></a></li>
                     <li><a href="#"><i class="fas fa-briefcase"></i> <span>Trabalho</span></a></li>
                     <li><a href="#"><i class="fas fa-comments"></i> <span>Mensagens</span></a></li>
                     <li><a href="#"><i class="fas fa-bell"></i> <span>Notificações</span></a></li>
                     <li><a href="#"><i class="fas fa-network-wired"></i> <span>Conexões</span></a></li>
-                    <li><a href="itens_salvos.php"><i class="fas fa-bookmark"></i> <span>Itens Salvos</span></a></li>
+                    <li><a href="itens_salvos.php" class="active"><i class="fas fa-bookmark"></i> <span>Itens
+                                Salvos</span></a></li>
                     <li><a href="#"><i class="fas fa-chart-line"></i> <span>Estatisticas</span></a></li>
                 </ul>
             </nav>
@@ -110,51 +125,24 @@ if (!empty($_SESSION)) {
 
         <!-- Main Feed -->
         <main class="feed">
-            <!-- Create Post -->
-            <div class="create-post">
-                <form method="POST" action="../backend/criar_publicacao.php" enctype="multipart/form-data">
-                    <div class="post-input">
-                        <?php
-                        $fotoPerfil = !empty($perfilData['foto_perfil']) ? "images/perfil/" . $perfilData['foto_perfil'] : "images/perfil/default-profile.jpg";
-                        ?>
-                        <img src="<?php echo $fotoPerfil ?>" alt="Profile" class="profile-pic">
-                        <textarea name="conteudo" placeholder="Partilhe com o mundo..." maxlength="500"
-                            required></textarea>
-                    </div>
-                    <div class="post-actions">
-                        <button type="button"><i class="fas fa-image"></i> Fotos</button>
-                        <button type="button"><i class="fas fa-file-alt"></i> Document</button>
-                        <button type="button"><i class="fas fa-link"></i> Link</button>
-                        <button type="button"><i class="fas fa-poll"></i> Poll</button>
-                        <button type="submit" name="publicar" class="publish-btn">Publicar</button>
-                    </div>
-                </form>
+            <div class="saved-posts-header">
+                <i class="fas fa-bookmark"></i>
+                <h2>Publicações Salvas</h2>
             </div>
 
             <!-- Posts -->
             <div class="posts">
                 <?php
-                include_once("../backend/ligabd.php");
-
-                // Função para contar comentários
-                function getCommentCount($con, $postId)
-                {
-                    $sql = "SELECT COUNT(*) as count FROM comentarios WHERE id_publicacao = $postId";
-                    $result = mysqli_query($con, $sql);
-                    $data = mysqli_fetch_assoc($result);
-                    return $data['count'];
-                }
-
+                // Consulta corrigida para buscar publicações salvas
                 $sql = "SELECT p.id_publicacao, p.conteudo, p.data_criacao, p.likes, 
-                       u.id AS id_utilizador, u.nick, 
-                       pr.foto_perfil, pr.ocupacao 
-                FROM publicacoes p
-                JOIN utilizadores u ON p.id_utilizador = u.id
-                LEFT JOIN perfis pr ON u.id = pr.id_utilizador
-                WHERE p.deletado_em = '0000-00-00 00:00:00'
-                ORDER BY p.data_criacao DESC";
-
-
+                               u.id AS id_utilizador, u.nick, 
+                               pr.foto_perfil, pr.ocupacao 
+                        FROM publicacoes p
+                        JOIN utilizadores u ON p.id_utilizador = u.id
+                        LEFT JOIN perfis pr ON u.id = pr.id_utilizador
+                        JOIN publicacao_salvas s ON s.publicacao_id = p.id_publicacao
+                        WHERE s.utilizador_id = $userId AND p.deletado_em = '0000-00-00 00:00:00'
+                        ORDER BY s.data_salvamento DESC";
 
                 $resultado = mysqli_query($con, $sql);
 
@@ -166,28 +154,17 @@ if (!empty($_SESSION)) {
 
                         // Verificar se o usuário logado já deu like
                         $likedClass = '';
-                        if (isset($_SESSION['id'])) {
-                            $userId = $_SESSION['id'];
-                            $checkSql = "SELECT * FROM publicacao_likes 
-                             WHERE publicacao_id = $publicacaoId AND utilizador_id = $userId";
-                            $checkResult = mysqli_query($con, $checkSql);
-                            if (mysqli_num_rows($checkResult) > 0) {
-                                $likedClass = 'liked';
-                            }
+                        $checkSql = "SELECT * FROM publicacao_likes 
+                                     WHERE publicacao_id = $publicacaoId AND utilizador_id = $userId";
+                        $checkResult = mysqli_query($con, $checkSql);
+                        if (mysqli_num_rows($checkResult) > 0) {
+                            $likedClass = 'liked';
                         }
 
-                        $savedClass = '';
-                        if (isset($_SESSION['id'])) {
-                            $userId = $_SESSION['id'];
-                            if (isPostSaved($con, $userId, $publicacaoId)) {
-                                $savedClass = 'saved';
-                            }
-                        }
+                        // Todas as publicações nesta página estão salvas
+                        $savedClass = 'saved';
                         ?>
-  
-
-
-                        <article class="post" data-post-id="<?php echo $publicacaoId; ?>">
+                        <article class="post" data-post-id="<?php echo $publicacaoId; ?>" data-saved="true">
                             <div class="post-header">
                                 <a href="perfil.php?id=<?php echo $linha['id_utilizador']; ?>">
                                     <img src="images/perfil/<?php echo htmlspecialchars($foto); ?>" alt="User"
@@ -198,7 +175,6 @@ if (!empty($_SESSION)) {
                                         <a href="perfil.php?id=<?php echo $linha['id_utilizador']; ?>" class="profile-link">
                                             <h3><?php echo htmlspecialchars($linha['nick']); ?></h3>
                                         </a>
-
                                         <p><?php echo htmlspecialchars($ocupacao); ?></p>
                                     </div>
                                     <span
@@ -219,7 +195,6 @@ if (!empty($_SESSION)) {
                                     <span
                                         class="comment-count"><?php echo getCommentCount($con, $linha['id_publicacao']); ?></span>
                                 </button>
-                                <button><i class="fas fa-share"></i> </button>
                                 <button class="save-btn <?php echo $savedClass; ?>"
                                     data-publicacao-id="<?php echo $publicacaoId; ?>">
                                     <i class="fas fa-bookmark"></i>
@@ -229,13 +204,17 @@ if (!empty($_SESSION)) {
                         <?php
                     }
                 } else {
-                    echo "<p class='no-posts'>Sem publicações para mostrar.</p>";
+                    echo "<p class='no-posts'>Nenhuma publicação salva ainda.</p>";
                 }
                 ?>
             </div>
         </main>
     </div>
 
+    <!-- Footer -->
+    <?php require "parciais/footer.php" ?>
+
+    <!-- Adicione o script completo aqui -->
     <!-- Footer -->
     <?php require "parciais/footer.php" ?>
 
@@ -267,11 +246,11 @@ if (!empty($_SESSION)) {
             });
         });
 
-        // No script do index.php
-        // Save functionality
+        // Save functionality - ATUALIZADO E CORRIGIDO
         document.querySelectorAll('.save-btn').forEach(button => {
             button.addEventListener('click', function () {
                 const publicacaoId = this.getAttribute('data-publicacao-id');
+                const postElement = this.closest('.post');
 
                 fetch('../backend/save_post.php', {
                     method: 'POST',
@@ -287,6 +266,21 @@ if (!empty($_SESSION)) {
                                 this.classList.add('saved');
                             } else {
                                 this.classList.remove('saved');
+
+                                // Animação e remoção do post
+                                if (postElement) {
+                                    postElement.classList.add('removing');
+
+                                    setTimeout(() => {
+                                        postElement.remove();
+
+                                        // Verificar se não há mais posts
+                                        const postsContainer = document.querySelector('.posts');
+                                        if (postsContainer.children.length === 0) {
+                                            postsContainer.innerHTML = '<p class="no-posts">Nenhuma publicação salva ainda.</p>';
+                                        }
+                                    }, 300);
+                                }
                             }
                         }
                     })
@@ -318,7 +312,6 @@ if (!empty($_SESSION)) {
         let currentPostId = null;
 
         // Função para abrir o modal de comentários
-        // Atualize a função openCommentsModal:
         function openCommentsModal(postId) {
             currentPostId = postId;
 
@@ -330,24 +323,24 @@ if (!empty($_SESSION)) {
 
                     // Adicione a classe 'post-content' para manter a formatação
                     document.getElementById('modalPostContent').innerHTML = `
-        <div class="post">
-          <div class="post-header">
-            <a href="perfil.php?id=${post.id_utilizador}">
-              <img src="images/perfil/${post.foto_perfil || 'default-profile.jpg'}" alt="User" class="profile-pic">
-            </a>
-            <div class="post-info">
-              <a href="perfil.php?id=${post.id_utilizador}" class="profile-link">
-                <h3>${post.nick}</h3>
-              </a>
-              <p>${post.ocupacao || 'Utilizador'}</p>
-              <span class="timestamp">${dataFormatada}</span>
-            </div>
-          </div>
-          <div class="post-content">
-            <p>${post.conteudo.replace(/\n/g, '<br>')}</p> <!-- Mantém quebras de linha -->
-          </div>
-        </div>
-      `;
+                    <div class="post">
+                        <div class="post-header">
+                            <a href="perfil.php?id=${post.id_utilizador}">
+                                <img src="images/perfil/${post.foto_perfil || 'default-profile.jpg'}" alt="User" class="profile-pic">
+                            </a>
+                            <div class="post-info">
+                                <a href="perfil.php?id=${post.id_utilizador}" class="profile-link">
+                                    <h3>${post.nick}</h3>
+                                </a>
+                                <p>${post.ocupacao || 'Utilizador'}</p>
+                                <span class="timestamp">${dataFormatada}</span>
+                            </div>
+                        </div>
+                        <div class="post-content">
+                            <p>${post.conteudo.replace(/\n/g, '<br>')}</p>
+                        </div>
+                    </div>
+                `;
 
                     loadComments(postId);
                 });
@@ -373,19 +366,19 @@ if (!empty($_SESSION)) {
                         const commentItem = document.createElement('div');
                         commentItem.className = 'comment-item';
                         commentItem.innerHTML = `
-                            <a href="perfil.php?id=${comment.utilizador_id}">
-                                <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
-                            </a>
-                            <div class="comment-content">
-                                <div class="comment-header">
-                                    <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
-                                        <span class="comment-username">${comment.nick}</span>
-                                    </a>
-                                    <span class="comment-time">${dataComentarioFormatada}</span>
-                                </div>
-                                <p class="comment-text">${comment.conteudo}</p>
+                        <a href="perfil.php?id=${comment.utilizador_id}">
+                            <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
+                        </a>
+                        <div class="comment-content">
+                            <div class="comment-header">
+                                <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
+                                    <span class="comment-username">${comment.nick}</span>
+                                </a>
+                                <span class="comment-time">${dataComentarioFormatada}</span>
                             </div>
-                        `;
+                            <p class="comment-text">${comment.conteudo}</p>
+                        </div>
+                    `;
                         commentsList.appendChild(commentItem);
                     });
                 });

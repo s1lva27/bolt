@@ -62,6 +62,7 @@ p {
 .timestamp {
   font-size: 0.75rem;
   color: var(--text-muted);
+
 }
 
 /* --------------------------------------------------------------------------
@@ -200,11 +201,8 @@ p {
 }
 
 .post-actions button {
-  flex: 1;
-  min-width: 100px;
-  padding: var(--space-sm) var(--space-md);
   border: none;
-  background: var(--bg-input);
+  background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
   border-radius: var(--radius-md);
@@ -215,12 +213,13 @@ p {
   gap: var(--space-sm);
   font-family: inherit;
   font-size: 0.9rem;
+  
 }
 
 .post-actions button:hover {
-  background-color: var(--bg-hover);
-  color: var(--color-primary);
-  transform: translateY(-2px);
+  background: transparent !important;
+  color: var(--color-primary) !important;
+  transform: scale(1.1) !important;
 }
 
 
@@ -258,6 +257,7 @@ p {
   display: flex;
   gap: var(--space-md);
   margin-bottom: var(--space-md);
+
 }
 
 .profile-pic {
@@ -275,10 +275,17 @@ p {
   color: var(--text-light);
 }
 
+.post-info {
+  justify-content: space-between;
+  width: 100%;
+  display: flex;
+}
+
 .post-info p {
   font-size: 0.9rem;
   color: var(--text-secondary);
   margin: var(--space-xs) 0;
+  display: flex;
 }
 
 .post-content {
@@ -291,7 +298,7 @@ p {
 }
 
 .post-content p,
-.comment-text{
+.comment-text {
   white-space: pre-line;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -498,15 +505,27 @@ footer {
   }
 
   .post-actions {
-    flex-wrap: wrap;
-    gap: var(--space-sm);
+    border-top: none !important;
+    padding-top: 8px !important;
+    justify-content: flex-start !important;
+    gap: 25px !important;
   }
 
   .post-actions button {
-    flex: 1 0 40%;
-    font-size: 0.8rem;
-    padding: var(--space-xs) var(--space-sm);
+    background: transparent !important;
+    border: none !important;
+    min-width: auto !important;
+    padding: 4px 0 !important;
+    flex: none !important;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+    transform: none !important;
   }
+}
+
+.post-actions button i {
+  font-size: 1.1rem;
+  margin-right: 6px;
 }
 
 @media (max-width: 480px) {
@@ -538,12 +557,11 @@ footer {
 
 /* Adicione isso no final do arquivo */
 .post-actions .like-btn.liked {
-  background-color: var(--color-primary);
-  color: white;
+  color: var(--color-primary) !important;
 }
 
 .post-actions .like-btn.liked i {
-  color: white;
+  color: inherit;
 }
 
 
@@ -632,7 +650,8 @@ footer {
   word-wrap: break-word;
   overflow-wrap: break-word;
   white-space: normal;
-  max-width: calc(100% - 60px); /* Garante que não ultrapasse o container */
+  max-width: calc(100% - 60px);
+  /* Garante que não ultrapasse o container */
 
 }
 
@@ -774,3 +793,33 @@ footer {
   font-size: 1.1rem;
 }
 
+/* style_index.css */
+/* Adicione no final do arquivo */
+
+/* Save button styles */
+.post-actions .save-btn.saved i {
+    color: var(--color-primary);
+}
+
+/* Saved page header */
+.saved-posts-header {
+    padding: var(--space-lg);
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-xl);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-light);
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.saved-posts-header i {
+    font-size: 1.5rem;
+    color: var(--color-primary);
+}
+
+.saved-posts-header h2 {
+    margin: 0;
+    color: var(--text-light);
+}

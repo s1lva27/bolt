@@ -116,16 +116,25 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
                     <h1>
                         <?php echo htmlspecialchars($userData['nome_completo']); ?>
                     </h1>
-                    <p class="nickperfil">@
-                        <?php echo htmlspecialchars($userData['nick']); ?>
+                    <p class="nickperfil">@<?php echo htmlspecialchars($userData['nick']); ?>
                     </p>
 
                     <div class="contact-info">
-                        <span>
-                            <i data-lucide="map-pin"></i>
-                            <?php echo htmlspecialchars($perfilData['cidade']); ?>,
-                            <?php echo htmlspecialchars($perfilData['pais']); ?>
-                        </span>
+                        <?php if (!empty($perfilData['cidade']) || !empty($perfilData['pais'])): ?>
+                            <span>
+                                <i data-lucide="map-pin"></i>
+                                <?php
+                                $location = [];
+                                if (!empty($perfilData['cidade'])) {
+                                    $location[] = htmlspecialchars($perfilData['cidade']);
+                                }
+                                if (!empty($perfilData['pais'])) {
+                                    $location[] = htmlspecialchars($perfilData['pais']);
+                                }
+                                echo implode(', ', $location);
+                                ?>
+                            </span>
+                        <?php endif; ?>
                         <span>
                             <i data-lucide="mail"></i>
                             <?php echo htmlspecialchars($userData['email']); ?>
@@ -226,20 +235,28 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
                     <?php echo htmlspecialchars($dataFormatada); ?>
                 </span>
             </div>
+            <div class="social-links" style="margin-top: 17px;">
+                <?php if (!empty($perfilData['x'])): ?>
+                    <a href="<?php echo htmlspecialchars($perfilData['x']); ?>" target="_blank" class="social-link">
+                        <i data-lucide="twitter"></i>
+                    </a>
+                <?php endif; ?>
+
+                <?php if (!empty($perfilData['github'])): ?>
+                    <a href="<?php echo htmlspecialchars($perfilData['github']); ?>" target="_blank" class="social-link">
+                        <i data-lucide="github"></i>
+                    </a>
+                <?php endif; ?>
+
+                <?php if (!empty($perfilData['linkedin'])): ?>
+                    <a href="<?php echo htmlspecialchars($perfilData['linkedin']); ?>" target="_blank" class="social-link">
+                        <i data-lucide="linkedin"></i>
+                    </a>
+                <?php endif; ?>
+            </div>
         </div>
 
-        <div class="social-links">
-            <a href="<?php echo htmlspecialchars($perfilData['x']); ?>" target="_blank" class="social-link">
-                <i data-lucide="twitter"></i>
-            </a>
-            <a href="<?php echo htmlspecialchars($perfilData['github']); ?>" target="_blank" class="social-link">
-                <i data-lucide="github"></i>
-            </a>
-            <a href="<?php echo htmlspecialchars($perfilData['linkedin']); ?>" target="_blank" class="social-link">
-                <i data-lucide="linkedin"></i>
-            </a>
-        </div>
-        </div>
+
 
         <!-- Atividade Recente -->
         <div class="activity-card">
