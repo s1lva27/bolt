@@ -615,7 +615,6 @@ ORDER BY p.data_criacao DESC";
                 this.uploadBtn.addEventListener('click', () => this.fileInput.click());
                 this.fileInput.addEventListener('change', (e) => this.handleFileSelection(e));
                 this.clearAllBtn.addEventListener('click', () => this.removeAllImages());
-                this.form.addEventListener('submit', (e) => this.handleFormSubmit(e));
             }
             
             handleFileSelection(event) {
@@ -702,41 +701,6 @@ ORDER BY p.data_criacao DESC";
                 });
                 
                 this.imageCount.textContent = `${this.selectedFiles.length}/${this.maxFiles} imagens selecionadas`;
-            }
-            
-            handleFormSubmit(event) {
-                if (this.selectedFiles.length === 0) return;
-                
-                const form = event.target;
-                const formData = new FormData();
-                
-                for (let [key, value] of new FormData(form).entries()) {
-                    if (key !== 'imagens[]') {
-                        formData.append(key, value);
-                    }
-                }
-                
-                this.selectedFiles.forEach((fileData, index) => {
-                    formData.append('imagens[]', fileData.file);
-                });
-                
-                event.preventDefault();
-                
-                fetch(form.action, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => {
-                    if (response.ok) {
-                        window.location.reload();
-                    } else {
-                        throw new Error('Erro no servidor');
-                    }
-                })
-                .catch(error => {
-                    console.error('Erro:', error);
-                    this.showToast('Erro ao criar publicação');
-                });
             }
             
             showToast(message) {
