@@ -150,6 +150,40 @@ p {
 /* --------------------------------------------------------------------------
    8. Posts & Publications
    -------------------------------------------------------------------------- */
+
+.action-icons {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.action-icons button {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-icons button:hover {
+  background: var(--bg-hover);
+  color: var(--color-primary);
+  transform: scale(1.1);
+}
+
+/* Mantém o botão de publicar à direita */
+.publish-btn {
+  margin-left: auto;
+  padding: 5px 10px;
+  /* Empurra para a direita */
+}
+
 .create-post {
   background: var(--bg-card);
   border-radius: var(--radius-lg);
@@ -213,7 +247,7 @@ p {
   gap: var(--space-sm);
   font-family: inherit;
   font-size: 0.9rem;
-  
+
 }
 
 .post-actions button:hover {
@@ -295,6 +329,10 @@ p {
   line-height: 1.6;
   overflow: hidden;
   max-width: 100%;
+}
+
+.post-content a {
+  word-break: break-all;
 }
 
 .post-content p,
@@ -798,28 +836,107 @@ footer {
 
 /* Save button styles */
 .post-actions .save-btn.saved i {
-    color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 /* Saved page header */
 .saved-posts-header {
-    padding: var(--space-lg);
-    background: var(--bg-card);
-    border-radius: var(--radius-lg);
-    margin-bottom: var(--space-xl);
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--border-light);
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-xl);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
 }
 
 .saved-posts-header i {
-    font-size: 1.5rem;
-    color: var(--color-primary);
+  font-size: 1.5rem;
+  color: var(--color-primary);
 }
 
 .saved-posts-header h2 {
-    margin: 0;
-    color: var(--text-light);
+  margin: 0;
+  color: var(--text-light);
+}
+
+/* Toast Notification */
+/* Toast Notification */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background-color: #FF5722;
+  /* Laranja */
+  color: white;
+  border-radius: var(--radius-md);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 10000;
+  /* Escondido inicialmente */
+  display: none;
+}
+
+.toast.show {
+  display: flex;
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.toast-icon {
+  font-size: 1.5rem;
+}
+
+.toast-content p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+@keyframes toastIn {
+  from {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toastOut {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  to {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+}
+
+.toast.show {
+  animation: toastIn 0.3s ease forwards;
+}
+
+.toast:not(.show) {
+  animation: toastOut 0.3s ease forwards;
+}
+
+.post-image {
+    max-width: 100%;
+    max-height: 500px;
+    border-radius: 8px;
+    margin-top: 15px;
+    display: block;
+    object-fit: cover;
 }

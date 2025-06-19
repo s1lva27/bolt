@@ -2,6 +2,8 @@
 session_start();
 require "ligabd.php";
 
+header('Content-Type: application/json'); // Adicione esta linha
+
 if (!isset($_SESSION["id"])) {
     die("Acesso negado.");
 }
@@ -29,11 +31,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["id_seguido"], $_POST[
     
     if ($stmt->execute()) {
         header("Location: ../frontend/perfil.php?id=$idSeguido");
-        exit();
+        echo json_encode(['success' => true, 'action' => $action]);
     } else {
-        die("Erro ao processar ação.");
+        echo json_encode(['success' => false, 'message' => 'Erro ao processar ação.']);
     }
 } else {
-    die("Requisição inválida.");
+    echo json_encode(['success' => false, 'message' => 'Requisição inválida.']);
 }
 

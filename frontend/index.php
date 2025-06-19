@@ -1,6 +1,17 @@
 <?php session_start();
 include "../backend/ligabd.php";
 
+// Função para transformar URLs em links clicáveis
+function makeLinksClickable($text)
+{
+    // Primeiro transforma URLs em links
+    $pattern = '/(https?:\/\/[^\s]+)/';
+    $linkedText = preg_replace($pattern, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>', $text);
+
+    // Depois aplica segurança
+    return $linkedText;
+}
+
 function isPostSaved($con, $userId, $postId)
 {
     $sql = "SELECT * FROM publicacao_salvas
@@ -61,6 +72,100 @@ if (!empty($_SESSION)) {
         .comment-content .profile-link:hover {
             color: var(--color-primary);
         }
+
+        /* Adicione ao seu CSS existente */
+        .image-preview-container {
+            margin-top: 10px;
+            display: none;
+        }
+
+        .image-preview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .remove-image-btn {
+            background: var(--color-danger);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            margin-top: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .remove-image-btn:hover {
+            background: #d63031;
+        }
+
+        /* Novos estilos para as imagens */
+        .post-image-container {
+            position: relative;
+            overflow: hidden;
+            margin-top: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            height: 400px;
+            /* Altura fixa para todas as imagens */
+        }
+
+        .post-image {
+            width: auto;
+            height: 100%;
+            border-radius: 20px;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .post-image-container:hover .post-image {
+            transform: scale(1.03);
+        }
+
+        /* Modal para imagem expandida */
+        #imageModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        #expandedImg {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+        }
+
+        .close-image-modal {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            z-index: 2001;
+        }
+
+        .image-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 
@@ -90,6 +195,13 @@ if (!empty($_SESSION)) {
         </div>
     </div>
 
+    <!-- Modal para imagem expandida -->
+    <div id="imageModal">
+        <button class="close-image-modal">&times;</button>
+        <img id="expandedImg" src="" alt="Imagem expandida">
+        <div class="image-info" id="imageInfo"></div>
+    </div>
+
     <!-- Main Content -->
     <div class="container">
         <!-- Left Sidebar -->
@@ -113,6 +225,7 @@ if (!empty($_SESSION)) {
             <!-- Create Post -->
             <div class="create-post">
                 <form method="POST" action="../backend/criar_publicacao.php" enctype="multipart/form-data">
+                    <input type="file" name="imagem" id="imageUpload" style="display:none;" accept="image/*">
                     <div class="post-input">
                         <?php
                         $fotoPerfil = !empty($perfilData['foto_perfil']) ? "images/perfil/" . $perfilData['foto_perfil'] : "images/perfil/default-profile.jpg";
@@ -121,11 +234,20 @@ if (!empty($_SESSION)) {
                         <textarea name="conteudo" placeholder="Partilhe com o mundo..." maxlength="500"
                             required></textarea>
                     </div>
+
+                    <!-- Container de pré-visualização da imagem -->
+                    <div class="image-preview-container" id="imagePreviewContainer">
+                        <img id="imagePreview" class="image-preview" src="#" alt="Pré-visualização da imagem">
+                        <button type="button" id="removeImageBtn" class="remove-image-btn">Remover imagem</button>
+                    </div>
+
                     <div class="post-actions">
-                        <button type="button"><i class="fas fa-image"></i> Fotos</button>
-                        <button type="button"><i class="fas fa-file-alt"></i> Document</button>
-                        <button type="button"><i class="fas fa-link"></i> Link</button>
-                        <button type="button"><i class="fas fa-poll"></i> Poll</button>
+                        <div class="action-icons">
+                            <button type="button" id="imageUploadBtn"><i class="fas fa-image"></i></button>
+                            <button type="button"><i class="fas fa-file-alt"></i></button>
+                            <button type="button"><i class="fas fa-link"></i></button>
+                            <button type="button"><i class="fas fa-poll"></i></button>
+                        </div>
                         <button type="submit" name="publicar" class="publish-btn">Publicar</button>
                     </div>
                 </form>
@@ -146,13 +268,15 @@ if (!empty($_SESSION)) {
                 }
 
                 $sql = "SELECT p.id_publicacao, p.conteudo, p.data_criacao, p.likes, 
-                       u.id AS id_utilizador, u.nick, 
-                       pr.foto_perfil, pr.ocupacao 
-                FROM publicacoes p
-                JOIN utilizadores u ON p.id_utilizador = u.id
-                LEFT JOIN perfis pr ON u.id = pr.id_utilizador
-                WHERE p.deletado_em = '0000-00-00 00:00:00'
-                ORDER BY p.data_criacao DESC";
+       u.id AS id_utilizador, u.nick, 
+       pr.foto_perfil, pr.ocupacao,
+       pm.url AS imagem_url
+FROM publicacoes p
+JOIN utilizadores u ON p.id_utilizador = u.id
+LEFT JOIN perfis pr ON u.id = pr.id_utilizador
+LEFT JOIN publicacao_medias pm ON p.id_publicacao = pm.publicacao_id
+WHERE p.deletado_em = '0000-00-00 00:00:00'
+ORDER BY p.data_criacao DESC";
 
 
 
@@ -184,7 +308,7 @@ if (!empty($_SESSION)) {
                             }
                         }
                         ?>
-  
+
 
 
                         <article class="post" data-post-id="<?php echo $publicacaoId; ?>">
@@ -206,7 +330,17 @@ if (!empty($_SESSION)) {
                                 </div>
                             </div>
                             <div class="post-content">
-                                <p><?php echo nl2br(htmlspecialchars($linha['conteudo'])); ?></p>
+                                <p><?php echo nl2br(makeLinksClickable($linha['conteudo'])); ?></p>
+                                <?php if (!empty($linha['imagem_url'])): ?>
+                                    <div class="post-image-container" onclick="openImageModal(
+                 'images/publicacoes/<?php echo htmlspecialchars($linha['imagem_url']); ?>',
+                 '<?php echo htmlspecialchars($linha['nick']); ?>',
+                 '<?php echo date('d-m-Y H:i', strtotime($linha['data_criacao'])); ?>'
+             )">
+                                        <img src="images/publicacoes/<?php echo htmlspecialchars($linha['imagem_url']); ?>"
+                                            alt="Imagem da publicação" class="post-image">
+                                    </div>
+                                <?php endif; ?>
                             </div>
                             <div class="post-actions">
                                 <button class="like-btn <?php echo $likedClass; ?>"
@@ -233,6 +367,17 @@ if (!empty($_SESSION)) {
                 }
                 ?>
             </div>
+
+            <!-- Toast Notification -->
+            <div id="toast" class="toast">
+                <div class="toast-icon">
+                    <i class="fas fa-bookmark"></i>
+                </div>
+                <div class="toast-content">
+                    <p id="toast-message">Mensagem aqui</p>
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -267,32 +412,6 @@ if (!empty($_SESSION)) {
             });
         });
 
-        // No script do index.php
-        // Save functionality
-        document.querySelectorAll('.save-btn').forEach(button => {
-            button.addEventListener('click', function () {
-                const publicacaoId = this.getAttribute('data-publicacao-id');
-
-                fetch('../backend/save_post.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `id_publicacao=${publicacaoId}`
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            if (data.action === 'saved') {
-                                this.classList.add('saved');
-                            } else {
-                                this.classList.remove('saved');
-                            }
-                        }
-                    })
-                    .catch(error => console.error('Error:', error));
-            });
-        });
 
         // Referências para o modal e o botão de fechar
         const modal = document.getElementById('commentsModal');
@@ -390,6 +509,123 @@ if (!empty($_SESSION)) {
                     });
                 });
         }
+
+        // Função para mostrar toast
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            toastMessage.textContent = message;
+
+            // Mostrar o toast
+            toast.style.display = 'flex';
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 10);
+
+            // Esconder após 3 segundos
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    toast.style.display = 'none';
+                }, 300);
+            }, 3000);
+        }
+
+        // Funções para abrir/fechar imagem expandida
+        function openImageModal(imageSrc, username, timestamp) {
+            const modal = document.getElementById('imageModal');
+            const expandedImg = document.getElementById('expandedImg');
+            const imageInfo = document.getElementById('imageInfo');
+
+            expandedImg.src = imageSrc;
+            imageInfo.innerHTML = `<span>${username}</span> · ${timestamp}`;
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeImageModal() {
+            document.getElementById('imageModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        // Event listeners para o modal de imagem
+        document.querySelector('.close-image-modal').addEventListener('click', closeImageModal);
+
+        document.getElementById('imageModal').addEventListener('click', function (e) {
+            if (e.target === this) {
+                closeImageModal();
+            }
+        });
+
+        // Fechar com ESC
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && document.getElementById('imageModal').style.display === 'flex') {
+                closeImageModal();
+            }
+        });
+
+        // Dentro do evento de clique do save-btn:
+        document.querySelectorAll('.save-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                const publicacaoId = this.getAttribute('data-publicacao-id');
+                const isCurrentlySaved = this.classList.contains('saved');
+
+                fetch('../backend/save_post.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `id_publicacao=${publicacaoId}`
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (data.action === 'saved') {
+                                this.classList.add('saved');
+                                showToast('Adicionado aos itens salvos');
+                            } else {
+                                this.classList.remove('saved');
+                                showToast('Removido dos itens salvos');
+                            }
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+            });
+        });
+
+        // Botão para abrir seletor de imagens
+        document.getElementById('imageUploadBtn').addEventListener('click', function () {
+            document.getElementById('imageUpload').click();
+        });
+
+        // Adicione ao seu script existente
+        document.getElementById('imageUpload').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+
+                reader.onload = function (event) {
+                    const preview = document.getElementById('imagePreview');
+                    preview.src = event.target.result;
+                    document.getElementById('imagePreviewContainer').style.display = 'block';
+                }
+
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Botão para remover imagem selecionada
+        document.getElementById('removeImageBtn').addEventListener('click', function () {
+            document.getElementById('imageUpload').value = '';
+            document.getElementById('imagePreviewContainer').style.display = 'none';
+            document.getElementById('imagePreview').src = '#';
+        });
+
+        // Botão para abrir seletor de imagens
+        document.getElementById('imageUploadBtn').addEventListener('click', function () {
+            document.getElementById('imageUpload').click();
+        });
+
 
         // Envio de novo comentário
         document.getElementById('commentForm').addEventListener('submit', function (e) {

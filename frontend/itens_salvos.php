@@ -79,6 +79,74 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
             margin: 0;
             overflow: hidden;
         }
+
+        /* Adicione isso no seu CSS */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background-color: #FF5722;
+            /* Laranja */
+            color: white;
+            border-radius: var(--radius-md);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 10000;
+            display: none;
+        }
+
+        .toast.show {
+            display: flex;
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast-icon {
+            font-size: 1.5rem;
+        }
+
+        .toast-content p {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        @keyframes toastIn {
+            from {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes toastOut {
+            from {
+                transform: translateY(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+        }
+
+        .toast.show {
+            animation: toastIn 0.3s ease forwards;
+        }
+
+        .toast:not(.show) {
+            animation: toastOut 0.3s ease forwards;
+        }
     </style>
 </head>
 
@@ -208,6 +276,16 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                 }
                 ?>
             </div>
+
+            <!-- Adicione este toast antes de fechar o main.feed -->
+            <div id="toast" class="toast">
+                <div class="toast-icon">
+                    <i class="fas fa-bookmark"></i>
+                </div>
+                <div class="toast-content">
+                    <p id="toast-message">Mensagem aqui</p>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -246,17 +324,37 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
             });
         });
 
-        // Save functionality - ATUALIZADO E CORRIGIDO
+        // Adicione esta função no script
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            toastMessage.textContent = message;
+
+            // Mostrar o toast
+            toast.style.display = 'flex';
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 10);
+
+            // Esconder após 3 segundos
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    toast.style.display = 'none';
+                }, 300);
+            }, 3000);
+        }
+
+        // Modifique o evento de save-btn para usar o toast
         document.querySelectorAll('.save-btn').forEach(button => {
             button.addEventListener('click', function () {
                 const publicacaoId = this.getAttribute('data-publicacao-id');
                 const postElement = this.closest('.post');
+                const isCurrentlySaved = this.classList.contains('saved');
 
                 fetch('../backend/save_post.php', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: `id_publicacao=${publicacaoId}`
                 })
                     .then(response => response.json())
@@ -264,13 +362,14 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                         if (data.success) {
                             if (data.action === 'saved') {
                                 this.classList.add('saved');
+                                showToast('Adicionado aos itens salvos');
                             } else {
                                 this.classList.remove('saved');
+                                showToast('Removido dos itens salvos');
 
                                 // Animação e remoção do post
                                 if (postElement) {
                                     postElement.classList.add('removing');
-
                                     setTimeout(() => {
                                         postElement.remove();
 
