@@ -1,6 +1,6 @@
 <!-- Header -->
 <header>
-    <a href="index.php"class="logo">orange.</a>
+    <div class="flex flex-1"><a href="index.php" class="logo">orange.</a></div>
     <div class="search-bar">
         <form action="pesquisar.php" method="GET">
             <i class="fas fa-search"></i>
@@ -40,7 +40,6 @@
         text-shadow: 0 0 10px rgba(255, 87, 34, 0.3);
         letter-spacing: -0.5px;
         transition: transform var(--transition-normal);
-        flex: 1;
     }
 
     .logo:hover {

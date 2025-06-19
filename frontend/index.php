@@ -23,7 +23,7 @@ function isPostSaved($con, $userId, $postId)
 function getPostImages($con, $postId)
 {
     $sql = "SELECT url, content_warning FROM publicacao_medias 
-            WHERE publicacao_id = $postId AND tipo = 'imagem' 
+            WHERE publicacao_id = $postId
             ORDER BY ordem ASC";
     $result = mysqli_query($con, $sql);
     $images = [];
@@ -44,6 +44,7 @@ if (!empty($_SESSION)) {
 <html lang="en">
 
 <head>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Orange</title>
@@ -411,7 +412,12 @@ if (!empty($_SESSION)) {
             <!-- Create Post -->
             <div class="create-post">
                 <form method="POST" action="../backend/criar_publicacao.php" enctype="multipart/form-data" id="postForm">
-                    <input type="file" name="imagens[]" id="imageUpload" style="display:none;" accept="image/*" multiple>
+                    <input type="file" name="media0" hidden id="media0" accept="image/*">
+                    <input type="file" name="media1" hidden id="media1" accept="image/*">
+                    <input type="file" name="media2" hidden id="media2" accept="image/*">
+                    <input type="file" name="media3" hidden id="media3" accept="image/*">
+                    <input type="file" name="media4" hidden id="media4" accept="image/*">
+
                     <div class="post-input">
                         <?php
                         $fotoPerfil = !empty($perfilData['foto_perfil']) ? "images/perfil/" . $perfilData['foto_perfil'] : "images/perfil/default-profile.jpg";
@@ -421,17 +427,23 @@ if (!empty($_SESSION)) {
                     </div>
 
                     <!-- Container de pré-visualização das imagens -->
-                    <div class="multiple-image-preview" id="imagePreviewContainer">
-                        <div class="preview-header">
-                            <span class="preview-count" id="imageCount">0 imagens selecionadas</span>
-                            <button type="button" id="clearAllBtn" class="clear-all-btn">Remover todas</button>
-                        </div>
-                        <div class="preview-grid" id="previewGrid"></div>
+                    <div id="previewGrid" class="flex gap-1">
+                        <?php
+                        for ($i = 0; $i < 5; $i++) {
+                        ?>
+                            <div class="relative w-[100px] h-[100px] rounded-lg bg-gray-100 overflow-hidden hidden" id="preview-container-<?= $i ?>">
+                                <img id="preview-img-<?= $i ?>" class="object-cover w-full h-full">
+                                <button type="button" onclick="removeFile(<?= $i ?>)"
+                                    class="absolute top-1 right-1 bg-[#FF5722] hover:bg-[#bf4019] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">×</button>
+                            </div>
+                        <?php
+                        }
+                        ?>
                     </div>
 
                     <div class="post-actions">
                         <div class="action-icons">
-                            <button type="button" id="imageUploadBtn"><i class="fas fa-image"></i></button>
+                            <button type="button" id="uploadImage"><i class="fas fa-image"></i></button>
                             <button type="button"><i class="fas fa-file-alt"></i></button>
                             <button type="button"><i class="fas fa-link"></i></button>
                             <button type="button"><i class="fas fa-poll"></i></button>
@@ -440,6 +452,50 @@ if (!empty($_SESSION)) {
                     </div>
                 </form>
             </div>
+
+            <script>
+                const uploadBtn = document.getElementById('uploadImage');
+                const inputFiles = [];
+                const previewImgs = [];
+                const previewContainers = [];
+
+                for (let i = 0; i < 5; i++) {
+                    inputFiles[i] = document.getElementById('media' + i);
+                    previewImgs[i] = document.getElementById('preview-img-' + i);
+                    previewContainers[i] = document.getElementById('preview-container-' + i);
+
+                    inputFiles[i].addEventListener('change', function(e) {
+                        const file = e.target.files[0];
+                        if (file) {
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                previewImgs[i].src = e.target.result;
+                                previewContainers[i].classList.remove('hidden');
+                            }
+                            reader.readAsDataURL(file);
+                        } else {
+                            previewImgs[i].src = '';
+                            previewContainers[i].classList.add('hidden');
+                        }
+                    });
+                }
+
+                uploadBtn.addEventListener('click', () => {
+                    for (let i = 0; i < inputFiles.length; i++) {
+                        if (!inputFiles[i].files.length) {
+                            inputFiles[i].click();
+                            break;
+                        }
+                    }
+                });
+
+                function removeFile(i) {
+                    inputFiles[i].value = ""; // Clear the file input
+                    console.log(previewImgs);
+                    previewImgs[i].src = "";
+                    previewContainers[i].classList.add('hidden');
+                }
+            </script>
 
             <!-- Posts -->
             <div class="posts">
@@ -456,13 +512,13 @@ if (!empty($_SESSION)) {
                 }
 
                 $sql = "SELECT p.id_publicacao, p.conteudo, p.data_criacao, p.likes, 
-       u.id AS id_utilizador, u.nick, 
-       pr.foto_perfil, pr.ocupacao
-FROM publicacoes p
-JOIN utilizadores u ON p.id_utilizador = u.id
-LEFT JOIN perfis pr ON u.id = pr.id_utilizador
-WHERE p.deletado_em = '0000-00-00 00:00:00'
-ORDER BY p.data_criacao DESC";
+                        u.id AS id_utilizador, u.nick, 
+                        pr.foto_perfil, pr.ocupacao
+                        FROM publicacoes p
+                        JOIN utilizadores u ON p.id_utilizador = u.id
+                        LEFT JOIN perfis pr ON u.id = pr.id_utilizador
+                        WHERE p.deletado_em = '0000-00-00 00:00:00'
+                        ORDER BY p.data_criacao DESC";
 
                 $resultado = mysqli_query($con, $sql);
 
@@ -494,7 +550,7 @@ ORDER BY p.data_criacao DESC";
 
                         // Buscar imagens da publicação
                         $images = getPostImages($con, $publicacaoId);
-                        ?>
+                ?>
 
                         <article class="post" data-post-id="<?php echo $publicacaoId; ?>">
                             <div class="post-header">
@@ -515,7 +571,7 @@ ORDER BY p.data_criacao DESC";
                             </div>
                             <div class="post-content">
                                 <p><?php echo nl2br(makeLinksClickable($linha['conteudo'])); ?></p>
-                                
+
                                 <?php if (!empty($images)): ?>
                                     <div class="post-images">
                                         <?php
@@ -527,14 +583,14 @@ ORDER BY p.data_criacao DESC";
                                         else $gridClass = 'multiple';
                                         ?>
                                         <div class="images-grid <?php echo $gridClass; ?>" data-post-id="<?php echo $publicacaoId; ?>">
-                                            <?php 
+                                            <?php
                                             $displayCount = min($imageCount, 4);
-                                            for ($i = 0; $i < $displayCount; $i++): 
+                                            for ($i = 0; $i < $displayCount; $i++):
                                                 $image = $images[$i];
                                             ?>
                                                 <div class="image-item" onclick="openImageModal(<?php echo $publicacaoId; ?>, <?php echo $i; ?>)">
                                                     <img src="images/publicacoes/<?php echo htmlspecialchars($image['url']); ?>"
-                                                         alt="Imagem da publicação" class="post-image">
+                                                        alt="Imagem da publicação" class="post-image">
                                                     <?php if ($i == 3 && $imageCount > 4): ?>
                                                         <div class="more-images-overlay">
                                                             +<?php echo $imageCount - 4; ?>
@@ -564,7 +620,7 @@ ORDER BY p.data_criacao DESC";
                                 </button>
                             </div>
                         </article>
-                        <?php
+                <?php
                     }
                 } else {
                     echo "<p class='no-posts'>Sem publicações para mostrar.</p>";
@@ -589,129 +645,6 @@ ORDER BY p.data_criacao DESC";
     <?php require "parciais/footer.php" ?>
 
     <script>
-        // Sistema de múltiplas imagens
-        class MultipleImageUpload {
-            constructor() {
-                this.selectedFiles = [];
-                this.maxFiles = 10;
-                this.maxFileSize = 5 * 1024 * 1024; // 5MB
-                this.allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                
-                this.initializeElements();
-                this.bindEvents();
-            }
-            
-            initializeElements() {
-                this.fileInput = document.getElementById('imageUpload');
-                this.uploadBtn = document.getElementById('imageUploadBtn');
-                this.previewContainer = document.getElementById('imagePreviewContainer');
-                this.previewGrid = document.getElementById('previewGrid');
-                this.imageCount = document.getElementById('imageCount');
-                this.clearAllBtn = document.getElementById('clearAllBtn');
-                this.form = document.getElementById('postForm');
-            }
-            
-            bindEvents() {
-                this.uploadBtn.addEventListener('click', () => this.fileInput.click());
-                this.fileInput.addEventListener('change', (e) => this.handleFileSelection(e));
-                this.clearAllBtn.addEventListener('click', () => this.removeAllImages());
-            }
-            
-            handleFileSelection(event) {
-                const files = Array.from(event.target.files || []);
-                
-                if (this.selectedFiles.length + files.length > this.maxFiles) {
-                    this.showToast(`Máximo de ${this.maxFiles} imagens permitidas`);
-                    event.target.value = '';
-                    return;
-                }
-                
-                files.forEach((file, index) => {
-                    if (this.validateFile(file)) {
-                        this.addFileToSelection(file, index);
-                    }
-                });
-                
-                event.target.value = '';
-                this.updatePreview();
-            }
-            
-            validateFile(file) {
-                if (!this.allowedTypes.includes(file.type)) {
-                    this.showToast(`Tipo de arquivo não suportado: ${file.type}`);
-                    return false;
-                }
-                
-                if (file.size > this.maxFileSize) {
-                    this.showToast(`Arquivo muito grande: ${file.name}. Máximo 5MB.`);
-                    return false;
-                }
-                
-                return true;
-            }
-            
-            addFileToSelection(file, originalIndex) {
-                const fileId = `${Date.now()}_${originalIndex}_${Math.random()}`;
-                const fileData = {
-                    id: fileId,
-                    file: file,
-                    originalIndex: originalIndex
-                };
-                
-                this.selectedFiles.push(fileData);
-            }
-            
-            removeImage(fileId) {
-                this.selectedFiles = this.selectedFiles.filter(f => f.id !== fileId);
-                this.updatePreview();
-            }
-            
-            removeAllImages() {
-                this.selectedFiles = [];
-                this.updatePreview();
-            }
-            
-            updatePreview() {
-                if (this.selectedFiles.length === 0) {
-                    this.previewContainer.style.display = 'none';
-                    return;
-                }
-                
-                this.previewContainer.style.display = 'block';
-                this.previewGrid.innerHTML = '';
-                
-                this.selectedFiles.forEach((fileData) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const imageWrapper = document.createElement('div');
-                        imageWrapper.className = 'preview-item';
-                        imageWrapper.innerHTML = `
-                            <img src="${e.target.result}" alt="Preview" class="preview-image">
-                            <button type="button" class="remove-image-btn" data-file-id="${fileData.id}">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        `;
-                        
-                        const removeBtn = imageWrapper.querySelector('.remove-image-btn');
-                        removeBtn.addEventListener('click', () => this.removeImage(fileData.id));
-                        
-                        this.previewGrid.appendChild(imageWrapper);
-                    };
-                    reader.readAsDataURL(fileData.file);
-                });
-                
-                this.imageCount.textContent = `${this.selectedFiles.length}/${this.maxFiles} imagens selecionadas`;
-            }
-            
-            showToast(message) {
-                if (window.showToast) {
-                    window.showToast(message);
-                } else {
-                    alert(message);
-                }
-            }
-        }
-
         // Inicializar sistema de upload
         document.addEventListener('DOMContentLoaded', function() {
             new MultipleImageUpload();
@@ -732,7 +665,7 @@ ORDER BY p.data_criacao DESC";
                     currentImageModal.postId = postId;
                     currentImageModal.currentIndex = imageIndex;
                     currentImageModal.images = images;
-                    
+
                     showImageInModal();
                     document.getElementById('imageModal').style.display = 'flex';
                     document.body.style.overflow = 'hidden';
@@ -748,12 +681,12 @@ ORDER BY p.data_criacao DESC";
             const imageCounter = document.getElementById('imageCounter');
             const prevBtn = document.getElementById('prevImageBtn');
             const nextBtn = document.getElementById('nextImageBtn');
-            
+
             const currentImage = currentImageModal.images[currentImageModal.currentIndex];
             modalImage.src = `images/publicacoes/${currentImage.url}`;
-            
+
             imageCounter.textContent = `${currentImageModal.currentIndex + 1} / ${currentImageModal.images.length}`;
-            
+
             prevBtn.disabled = currentImageModal.currentIndex === 0;
             nextBtn.disabled = currentImageModal.currentIndex === currentImageModal.images.length - 1;
         }
@@ -798,17 +731,17 @@ ORDER BY p.data_criacao DESC";
 
         // Like functionality
         document.querySelectorAll('.like-btn').forEach(button => {
-            button.addEventListener('click', function () {
+            button.addEventListener('click', function() {
                 const publicacaoId = this.getAttribute('data-publicacao-id');
                 const likeCount = this.querySelector('.like-count');
 
                 fetch('../backend/like.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `id_publicacao=${publicacaoId}`
-                })
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `id_publicacao=${publicacaoId}`
+                    })
                     .then(response => response.text())
                     .then(data => {
                         if (data === 'liked') {
@@ -938,16 +871,16 @@ ORDER BY p.data_criacao DESC";
 
         // Save functionality
         document.querySelectorAll('.save-btn').forEach(button => {
-            button.addEventListener('click', function () {
+            button.addEventListener('click', function() {
                 const publicacaoId = this.getAttribute('data-publicacao-id');
 
                 fetch('../backend/save_post.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `id_publicacao=${publicacaoId}`
-                })
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `id_publicacao=${publicacaoId}`
+                    })
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
@@ -965,7 +898,7 @@ ORDER BY p.data_criacao DESC";
         });
 
         // Envio de novo comentário
-        document.getElementById('commentForm').addEventListener('submit', function (e) {
+        document.getElementById('commentForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
             const commentInput = document.getElementById('commentInput');
@@ -977,9 +910,9 @@ ORDER BY p.data_criacao DESC";
                 formData.append('content', content);
 
                 fetch('../backend/add_comment.php', {
-                    method: 'POST',
-                    body: formData
-                })
+                        method: 'POST',
+                        body: formData
+                    })
                     .then(response => response.json())
                     .then(result => {
                         if (result.success) {

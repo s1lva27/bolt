@@ -36,6 +36,7 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
 <html lang="en">
 
 <head>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Itens Salvos - Orange</title>

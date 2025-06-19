@@ -1,4 +1,8 @@
 <?php
+
+$MAX_MEDIA = 5;
+$EXT_PERMITIDAS = ['jpg', 'jpeg', 'png', 'gif'];
+
 session_start();
 require 'ligabd.php';
 
@@ -13,12 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['publicar'])) {
     // Sanitizar e validar entrada de texto
     $conteudo = trim(htmlspecialchars($_POST['conteudo']));
     
-    // Verificar se há conteúdo ou imagem
-    if (empty($conteudo) && empty($_FILES['imagens']['name'][0])) {
-        $_SESSION['erro'] = "Adicione texto ou uma imagem para publicar!";
-        header('Location: ../frontend/index.php');
-        exit();
-    }
+    echo '<pre>';
+    var_dump($_FILES);
+    echo '</pre>';
 
     try {
         // Inserir no banco de dados
@@ -32,59 +33,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['publicar'])) {
 
         if ($stmt->execute()) {
             $publicacaoId = $stmt->insert_id;
-            
-            // Processar upload de múltiplas imagens se existirem
-            if(isset($_FILES['imagens']) && !empty($_FILES['imagens']['name'][0])) {
-                $files = $_FILES['imagens'];
-                $maxFiles = 10;
-                $fileCount = count($files['name']);
-                
-                if ($fileCount > $maxFiles) {
-                    throw new Exception("Máximo de $maxFiles imagens permitidas.");
+
+            for ($i=0; $i < $MAX_MEDIA; $i++) { 
+                $media = $_FILES["media".$i];
+
+                if(empty($media['name']))
+                {
+                    continue;
                 }
+
+                $ext = strtolower(pathinfo(basename($media["name"]), PATHINFO_EXTENSION));
                 
-                // Tipos de arquivo permitidos
-                $allowedTypes = [
-                    'image/jpeg' => 'jpg', 
-                    'image/png' => 'png', 
-                    'image/gif' => 'gif',
-                    'image/webp' => 'webp'
-                ];
-                
-                for ($i = 0; $i < $fileCount; $i++) {
-                    if ($files['error'][$i] == UPLOAD_ERR_OK) {
-                        $fileType = $files['type'][$i];
-                        $fileSize = $files['size'][$i];
-                        $maxSize = 5 * 1024 * 1024; // 5MB
-                        
-                        if ($fileSize > $maxSize) {
-                            throw new Exception("Arquivo muito grande. Máximo 5MB por imagem.");
-                        }
-                        
-                        $fileExt = isset($allowedTypes[$fileType]) ? $allowedTypes[$fileType] : false;
-                        
-                        if($fileExt) {
-                            // Gerar nome único para o arquivo
-                            $fileName = uniqid('img_' . time() . '_' . $i . '_') . '.' . $fileExt;
-                            $uploadPath = '../frontend/images/publicacoes/' . $fileName;
-                            
-                            // Mover arquivo para a pasta de publicações
-                            if(move_uploaded_file($files['tmp_name'][$i], $uploadPath)) {
-                                // Inserir na tabela de mídia
-                                $sqlMedia = "INSERT INTO publicacao_medias 
-                                            (publicacao_id, tipo, url, ordem) 
-                                            VALUES (?, 'imagem', ?, ?)";
-                                $stmtMedia = $con->prepare($sqlMedia);
-                                $stmtMedia->bind_param('isi', $publicacaoId, $fileName, $i);
-                                $stmtMedia->execute();
-                                $stmtMedia->close();
-                            } else {
-                                throw new Exception("Falha ao mover o arquivo $i.");
-                            }
-                        } else {
-                            throw new Exception("Tipo de arquivo não permitido. Use JPG, PNG, GIF ou WebP.");
-                        }
-                    }
+                if (!in_array($ext, $EXT_PERMITIDAS)) {
+                    die("Erro: Apenas imagens JPG, JPEG, PNG ou GIF são permitidas.");
+                }
+
+                $novo_nome = uniqid('pub_' . time() . '_' . $i . '_') . '.' . $ext;
+                $destino = "../frontend/images/publicacoes/" . $novo_nome;
+
+                if (move_uploaded_file($media['tmp_name'], $destino)) {
+
+                    $sql_pub_medias = "INSERT INTO publicacao_medias
+                        (publicacao_id, url, ordem, content_warning) VALUES
+                        ($publicacaoId, '$novo_nome', $i, 'none')";
+
+                    $result_pub_medias = mysqli_query($con, $sql_pub_medias);
+
+                    echo 'sql: '.$sql_pub_medias;
+                    // return;
                 }
             }
             
