@@ -2,23 +2,40 @@
 class ModernVideoPlayer {
   constructor(videoElement) {
     this.video = videoElement;
-    this.container = videoElement.closest('.video-container');
+    this.container = videoElement.closest('.video-container') || this.createContainer();
     this.isPlaying = false;
     this.isDragging = false;
     this.currentTime = 0;
     this.duration = 0;
+    this.volume = 1;
+    this.isMuted = false;
+    this.isFullscreen = false;
     
     this.init();
   }
   
+  createContainer() {
+    const container = document.createElement('div');
+    container.className = 'video-container';
+    this.video.parentNode.insertBefore(container, this.video);
+    container.appendChild(this.video);
+    return container;
+  }
+  
   init() {
+    // Hide native controls
+    this.video.controls = false;
+    this.video.preload = 'metadata';
+    
     this.createControls();
     this.bindEvents();
     this.updateTimeDisplay();
+    this.updateVolumeDisplay();
   }
   
   createControls() {
     const controlsHTML = `
+      <div class="video-loading"></div>
       <div class="video-controls">
         <div class="progress-container">
           <div class="buffer-progress"></div>
@@ -28,11 +45,11 @@ class ModernVideoPlayer {
         </div>
         <div class="controls-row">
           <div class="controls-left">
-            <button class="control-btn play-pause-btn">
+            <button class="control-btn play-pause-btn" title="Play/Pause">
               <i class="fas fa-play"></i>
             </button>
             <div class="volume-container">
-              <button class="control-btn volume-btn">
+              <button class="control-btn volume-btn" title="Mute/Unmute">
                 <i class="fas fa-volume-up"></i>
               </button>
               <div class="volume-slider">
@@ -44,7 +61,7 @@ class ModernVideoPlayer {
             </div>
           </div>
           <div class="controls-right">
-            <button class="control-btn fullscreen-btn">
+            <button class="control-btn fullscreen-btn" title="Fullscreen">
               <i class="fas fa-expand"></i>
             </button>
           </div>
@@ -72,6 +89,8 @@ class ModernVideoPlayer {
     this.currentTimeEl = this.container.querySelector('.current-time');
     this.durationEl = this.container.querySelector('.duration');
     this.fullscreenBtn = this.container.querySelector('.fullscreen-btn');
+    this.videoControls = this.container.querySelector('.video-controls');
+    this.videoLoading = this.container.querySelector('.video-loading');
   }
   
   bindEvents() {
@@ -82,6 +101,9 @@ class ModernVideoPlayer {
     this.video.addEventListener('ended', () => this.onEnded());
     this.video.addEventListener('play', () => this.onPlay());
     this.video.addEventListener('pause', () => this.onPause());
+    this.video.addEventListener('waiting', () => this.onWaiting());
+    this.video.addEventListener('canplay', () => this.onCanPlay());
+    this.video.addEventListener('loadstart', () => this.onLoadStart());
     
     // Control events
     this.playPauseBtn.addEventListener('click', () => this.togglePlay());
@@ -98,9 +120,13 @@ class ModernVideoPlayer {
     
     // Fullscreen events
     this.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
+    document.addEventListener('fullscreenchange', () => this.onFullscreenChange());
+    document.addEventListener('webkitfullscreenchange', () => this.onFullscreenChange());
+    document.addEventListener('mozfullscreenchange', () => this.onFullscreenChange());
     
     // Keyboard events
     this.container.addEventListener('keydown', (e) => this.onKeyDown(e));
+    this.container.setAttribute('tabindex', '0');
     
     // Mouse events for dragging
     document.addEventListener('mousemove', (e) => this.onMouseMove(e));
@@ -110,12 +136,50 @@ class ModernVideoPlayer {
     this.progressContainer.addEventListener('touchstart', (e) => this.onTouchStart(e));
     this.progressContainer.addEventListener('touchmove', (e) => this.onTouchMove(e));
     this.progressContainer.addEventListener('touchend', () => this.onTouchEnd());
+    
+    // Show/hide controls on hover
+    this.container.addEventListener('mouseenter', () => this.showControls());
+    this.container.addEventListener('mouseleave', () => this.hideControls());
+    this.container.addEventListener('mousemove', () => this.showControls());
+    
+    // Auto-hide controls timer
+    this.controlsTimer = null;
+  }
+  
+  showControls() {
+    this.videoControls.classList.add('visible');
+    clearTimeout(this.controlsTimer);
+    
+    if (this.isPlaying) {
+      this.controlsTimer = setTimeout(() => {
+        this.hideControls();
+      }, 3000);
+    }
+  }
+  
+  hideControls() {
+    if (!this.container.matches(':hover') && this.isPlaying) {
+      this.videoControls.classList.remove('visible');
+    }
+  }
+  
+  onLoadStart() {
+    this.container.classList.add('loading');
+  }
+  
+  onWaiting() {
+    this.container.classList.add('loading');
+  }
+  
+  onCanPlay() {
+    this.container.classList.remove('loading');
   }
   
   onLoadedMetadata() {
     this.duration = this.video.duration;
     this.updateTimeDisplay();
     this.updateVolumeDisplay();
+    this.container.classList.remove('loading');
   }
   
   onTimeUpdate() {
@@ -139,7 +203,8 @@ class ModernVideoPlayer {
     this.container.classList.add('playing');
     this.container.classList.remove('paused');
     this.playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-    this.playOverlay.style.opacity = '0';
+    this.playPauseBtn.title = 'Pause';
+    this.showControls();
   }
   
   onPause() {
@@ -147,7 +212,9 @@ class ModernVideoPlayer {
     this.container.classList.add('paused');
     this.container.classList.remove('playing');
     this.playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-    this.playOverlay.style.opacity = '1';
+    this.playPauseBtn.title = 'Play';
+    this.showControls();
+    clearTimeout(this.controlsTimer);
   }
   
   onEnded() {
@@ -155,12 +222,14 @@ class ModernVideoPlayer {
     this.container.classList.add('paused');
     this.container.classList.remove('playing');
     this.playPauseBtn.innerHTML = '<i class="fas fa-replay"></i>';
-    this.playOverlay.style.opacity = '1';
+    this.playPauseBtn.title = 'Replay';
+    this.showControls();
+    clearTimeout(this.controlsTimer);
   }
   
   togglePlay() {
     if (this.video.paused || this.video.ended) {
-      this.video.play();
+      this.video.play().catch(e => console.log('Play failed:', e));
     } else {
       this.video.pause();
     }
@@ -175,6 +244,7 @@ class ModernVideoPlayer {
   onProgressMouseDown(e) {
     this.isDragging = true;
     this.onProgressClick(e);
+    e.preventDefault();
   }
   
   onMouseMove(e) {
@@ -195,6 +265,7 @@ class ModernVideoPlayer {
     const rect = this.progressContainer.getBoundingClientRect();
     const percent = (touch.clientX - rect.left) / rect.width;
     this.seekTo(percent);
+    e.preventDefault();
   }
   
   onTouchMove(e) {
@@ -240,10 +311,10 @@ class ModernVideoPlayer {
   toggleMute() {
     if (this.video.muted) {
       this.video.muted = false;
-      this.volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+      this.isMuted = false;
     } else {
       this.video.muted = true;
-      this.volumeBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+      this.isMuted = true;
     }
     this.updateVolumeDisplay();
   }
@@ -252,6 +323,9 @@ class ModernVideoPlayer {
     const rect = this.volumeSlider.getBoundingClientRect();
     const percent = (e.clientX - rect.left) / rect.width;
     this.video.volume = Math.max(0, Math.min(1, percent));
+    this.volume = this.video.volume;
+    this.video.muted = false;
+    this.isMuted = false;
     this.updateVolumeDisplay();
   }
   
@@ -259,24 +333,66 @@ class ModernVideoPlayer {
     const volume = this.video.muted ? 0 : this.video.volume;
     this.volumeProgress.style.width = `${volume * 100}%`;
     
-    if (volume === 0) {
+    if (volume === 0 || this.video.muted) {
       this.volumeBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+      this.volumeBtn.title = 'Unmute';
     } else if (volume < 0.5) {
       this.volumeBtn.innerHTML = '<i class="fas fa-volume-down"></i>';
+      this.volumeBtn.title = 'Mute';
     } else {
       this.volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+      this.volumeBtn.title = 'Mute';
     }
   }
   
   toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      this.container.requestFullscreen().then(() => {
-        this.fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
-      });
+    if (!this.isFullscreen) {
+      this.enterFullscreen();
     } else {
-      document.exitFullscreen().then(() => {
-        this.fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
-      });
+      this.exitFullscreen();
+    }
+  }
+  
+  enterFullscreen() {
+    const element = this.container;
+    
+    if (element.requestFullscreen) {
+      element.requestFullscreen();
+    } else if (element.webkitRequestFullscreen) {
+      element.webkitRequestFullscreen();
+    } else if (element.mozRequestFullScreen) {
+      element.mozRequestFullScreen();
+    } else if (element.msRequestFullscreen) {
+      element.msRequestFullscreen();
+    }
+  }
+  
+  exitFullscreen() {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    } else if (document.mozCancelFullScreen) {
+      document.mozCancelFullScreen();
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen();
+    }
+  }
+  
+  onFullscreenChange() {
+    this.isFullscreen = !!(document.fullscreenElement || 
+                          document.webkitFullscreenElement || 
+                          document.mozFullScreenElement || 
+                          document.msFullscreenElement);
+    
+    if (this.isFullscreen) {
+      this.fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+      this.fullscreenBtn.title = 'Exit Fullscreen';
+      this.container.classList.add('fullscreen');
+    } else {
+      this.fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+      this.fullscreenBtn.title = 'Fullscreen';
+      this.container.classList.remove('fullscreen');
     }
   }
   
@@ -314,17 +430,52 @@ class ModernVideoPlayer {
         break;
     }
   }
+  
+  destroy() {
+    clearTimeout(this.controlsTimer);
+    // Remove event listeners and clean up
+    this.video.controls = true;
+    const controls = this.container.querySelector('.video-controls');
+    const overlay = this.container.querySelector('.play-overlay');
+    const loading = this.container.querySelector('.video-loading');
+    
+    if (controls) controls.remove();
+    if (overlay) overlay.remove();
+    if (loading) loading.remove();
+  }
 }
 
 // Initialize video players when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-  const videos = document.querySelectorAll('.video-container video');
+  initializeVideoPlayers();
+});
+
+// Function to initialize all video players
+function initializeVideoPlayers() {
+  const videos = document.querySelectorAll('video:not([data-player-initialized])');
   videos.forEach(video => {
+    // Skip if already initialized
+    if (video.dataset.playerInitialized) return;
+    
+    // Mark as initialized
+    video.dataset.playerInitialized = 'true';
+    
+    // Create player instance
     new ModernVideoPlayer(video);
   });
-});
+}
+
+// Function to initialize new videos (for dynamically loaded content)
+function initializeNewVideos() {
+  initializeVideoPlayers();
+}
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = ModernVideoPlayer;
+  module.exports = { ModernVideoPlayer, initializeVideoPlayers, initializeNewVideos };
 }
+
+// Make functions globally available
+window.ModernVideoPlayer = ModernVideoPlayer;
+window.initializeVideoPlayers = initializeVideoPlayers;
+window.initializeNewVideos = initializeNewVideos;

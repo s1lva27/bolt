@@ -50,7 +50,7 @@ if (!empty($_SESSION)) {
     <title>Orange</title>
     <link rel="stylesheet" href="css/style_index.css">
     <link rel="stylesheet" href="css/app.css">
-    <link rel="stylesheet" href="css/video-player.css">
+    <link rel="stylesheet" href="css/video_player.css">
     <link rel="icon" type="image/x-icon" href="images/favicon/favicon_orange.png">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -430,15 +430,12 @@ if (!empty($_SESSION)) {
                                                 <div class="media-item"
                                                     onclick="openMediaModal(<?php echo $publicacaoId; ?>, <?php echo $i; ?>)">
                                                     <?php if ($media['tipo'] === 'video'): ?>
-                                                        <div class="video-thumbnail">
-                                                            <video class="post-media" muted>
+                                                        <div class="video-container">
+                                                            <video class="post-media" muted preload="metadata">
                                                                 <source
                                                                     src="images/publicacoes/<?php echo htmlspecialchars($media['url']); ?>"
                                                                     type="video/mp4">
                                                             </video>
-                                                            <div class="play-icon">
-                                                                <i class="fas fa-play"></i>
-                                                            </div>
                                                         </div>
                                                     <?php else: ?>
                                                         <img src="images/publicacoes/<?php echo htmlspecialchars($media['url']); ?>"
@@ -501,6 +498,12 @@ if (!empty($_SESSION)) {
     <script src="js/video-player.js"></script>
 
     <script>
+        // Initialize video players after page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize video players
+            initializeVideoPlayers();
+        });
+
         // Sistema de visualização de imagens
         let currentImageModal = {
             postId: null,
@@ -554,10 +557,10 @@ if (!empty($_SESSION)) {
 
             if (currentMedia.tipo === 'video') {
                 const videoContainer = document.createElement('div');
-                videoContainer.className = 'video-container';
+                videoContainer.className = 'video-container modal-media-container';
 
                 const video = document.createElement('video');
-                video.controls = false; // Disable default controls
+                video.controls = false;
                 video.autoplay = true;
                 video.className = 'modal-media';
                 video.style.maxWidth = '100%';
@@ -572,7 +575,7 @@ if (!empty($_SESSION)) {
                 videoContainer.appendChild(video);
                 modalContent.appendChild(videoContainer);
 
-                // Initialize modern video player for modal video
+                // Initialize video player for modal video
                 setTimeout(() => {
                     new ModernVideoPlayer(video);
                 }, 100);
