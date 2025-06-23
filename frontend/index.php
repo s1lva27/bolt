@@ -22,15 +22,15 @@ function isPostSaved($con, $userId, $postId)
 
 function getPostImages($con, $postId)
 {
-    $sql = "SELECT url, content_warning FROM publicacao_medias 
+    $sql = "SELECT url, content_warning, tipo FROM publicacao_medias 
             WHERE publicacao_id = $postId
             ORDER BY ordem ASC";
     $result = mysqli_query($con, $sql);
-    $images = [];
+    $medias = [];
     while ($row = mysqli_fetch_assoc($result)) {
-        $images[] = $row;
+        $medias[] = $row;
     }
-    return $images;
+    return $medias;
 }
 
 if (!empty($_SESSION)) {
@@ -202,11 +202,11 @@ if (!empty($_SESSION)) {
         </div>
     </div>
 
-    <!-- Modal para imagem expandida -->
+    <!-- Modal para mídia expandida -->
     <div id="imageModal" class="image-modal">
         <div class="image-modal-content">
             <button class="close-image-modal">&times;</button>
-            <img id="modalImage" class="modal-image" src="" alt="Imagem expandida">
+            <div id="modalImage" class="modal-image-container"></div>
             <div class="image-modal-nav">
                 <button id="prevImageBtn" class="modal-nav-btn">
                     <i class="fas fa-chevron-left"></i>
@@ -243,11 +243,11 @@ if (!empty($_SESSION)) {
             <div class="create-post">
                 <form method="POST" action="../backend/criar_publicacao.php" enctype="multipart/form-data"
                     id="postForm">
-                    <input type="file" name="media0" hidden id="media0" accept="image/*">
-                    <input type="file" name="media1" hidden id="media1" accept="image/*">
-                    <input type="file" name="media2" hidden id="media2" accept="image/*">
-                    <input type="file" name="media3" hidden id="media3" accept="image/*">
-                    <input type="file" name="media4" hidden id="media4" accept="image/*">
+                    <input type="file" name="media0" hidden id="media0" accept="image/*,video/*">
+                    <input type="file" name="media1" hidden id="media1" accept="image/*,video/*">
+                    <input type="file" name="media2" hidden id="media2" accept="image/*,video/*">
+                    <input type="file" name="media3" hidden id="media3" accept="image/*,video/*">
+                    <input type="file" name="media4" hidden id="media4" accept="image/*,video/*">
 
                     <div class="post-input">
                         <?php
@@ -424,16 +424,29 @@ if (!empty($_SESSION)) {
                                             <?php
                                             $displayCount = min($imageCount, 4);
                                             for ($i = 0; $i < $displayCount; $i++):
-                                                $image = $images[$i];
+                                                $media = $images[$i];
                                                 ?>
-                                                <div class="image-item"
-                                                    onclick="openImageModal(<?php echo $publicacaoId; ?>, <?php echo $i; ?>)">
-                                                    <img src="images/publicacoes/<?php echo htmlspecialchars($image['url']); ?>"
-                                                        alt="Imagem da publicação" class="post-image">
-                                                    <?php if ($i == 3 && $imageCount > 4): ?>
-                                                        <div class="more-images-overlay">
-                                                            +<?php echo $imageCount - 4; ?>
+                                                <div class="media-item"
+                                                    onclick="openMediaModal(<?php echo $publicacaoId; ?>, <?php echo $i; ?>)">
+                                                    <?php if ($media['tipo'] === 'video'): ?>
+                                                        <div class="video-thumbnail">
+                                                            <video class="post-media" muted>
+                                                                <source
+                                                                    src="images/publicacoes/<?php echo htmlspecialchars($media['url']); ?>"
+                                                                    type="video/mp4">
+                                                            </video>
+                                                            <div class="play-icon">
+                                                                <i class="fas fa-play"></i>
+                                                            </div>
                                                         </div>
+                                                    <?php else: ?>
+                                                        <img src="images/publicacoes/<?php echo htmlspecialchars($media['url']); ?>"
+                                                            alt="Imagem da publicação" class="post-media">
+                                                        <?php if ($i == 3 && $imageCount > 4): ?>
+                                                            <div class="more-images-overlay">
+                                                                +<?php echo $imageCount - 4; ?>
+                                                            </div>
+                                                        <?php endif; ?>
                                                     <?php endif; ?>
                                                 </div>
                                             <?php endfor; ?>
@@ -493,50 +506,91 @@ if (!empty($_SESSION)) {
             images: []
         };
 
-        function openImageModal(postId, imageIndex = 0) {
-            // Busca as imagens diretamente do elemento DOM (mais eficiente)
+        function openMediaModal(postId, mediaIndex = 0) {
             const postElement = document.querySelector(`.post[data-post-id="${postId}"]`);
             if (!postElement) return;
 
-            const images = [];
-            const imageElements = postElement.querySelectorAll('.post-image');
-            imageElements.forEach(img => {
-                images.push({
-                    url: img.src.split('/').pop(), // Extrai apenas o nome do arquivo
-                    content_warning: 'none'
+            const medias = [];
+            const mediaElements = postElement.querySelectorAll('.media-item');
+
+            mediaElements.forEach(item => {
+                const videoElement = item.querySelector('video');
+                const imgElement = item.querySelector('img');
+
+                medias.push({
+                    url: videoElement
+                        ? videoElement.querySelector('source').src.split('/').pop()
+                        : imgElement.src.split('/').pop(),
+                    tipo: videoElement ? 'video' : 'imagem'
                 });
             });
 
-            if (images.length === 0) return;
+            if (medias.length === 0) return;
 
             currentImageModal = {
                 postId,
-                currentIndex: imageIndex,
-                images
+                currentIndex: mediaIndex,
+                medias
             };
 
-            showImageInModal();
+            showMediaInModal();
             document.getElementById('imageModal').style.display = 'flex';
             document.body.style.overflow = 'hidden';
         }
 
-        function showImageInModal() {
+        function showMediaInModal() {
             const modal = document.getElementById('imageModal');
-            const modalImage = document.getElementById('modalImage');
+            const modalContent = document.getElementById('modalImage');
             const imageCounter = document.getElementById('imageCounter');
             const prevBtn = document.getElementById('prevImageBtn');
             const nextBtn = document.getElementById('nextImageBtn');
 
-            const currentImage = currentImageModal.images[currentImageModal.currentIndex];
-            modalImage.src = `images/publicacoes/${currentImage.url}`;
+            // Limpa o conteúdo anterior e pausa qualquer vídeo
+            modalContent.innerHTML = '';
 
-            imageCounter.textContent = `${currentImageModal.currentIndex + 1} / ${currentImageModal.images.length}`;
+            const currentMedia = currentImageModal.medias[currentImageModal.currentIndex];
+
+            if (currentMedia.tipo === 'video') {
+                const videoContainer = document.createElement('div');
+                videoContainer.className = 'video-container';
+
+                const video = document.createElement('video');
+                video.controls = true;
+                video.autoplay = true;
+                video.className = 'modal-media';
+                video.style.maxWidth = '100%';
+                video.style.maxHeight = '80vh';
+
+                const source = document.createElement('source');
+                source.src = `images/publicacoes/${currentMedia.url}`;
+                source.type = 'video/mp4';
+
+                video.appendChild(source);
+                video.appendChild(document.createTextNode('Seu navegador não suporta vídeos.'));
+                videoContainer.appendChild(video);
+                modalContent.appendChild(videoContainer);
+            } else {
+                const img = document.createElement('img');
+                img.src = `images/publicacoes/${currentMedia.url}`;
+                img.className = 'modal-media';
+                img.alt = 'Imagem expandida';
+                modalContent.appendChild(img);
+            }
+
+            imageCounter.textContent = `${currentImageModal.currentIndex + 1} / ${currentImageModal.medias.length}`;
 
             prevBtn.disabled = currentImageModal.currentIndex === 0;
-            nextBtn.disabled = currentImageModal.currentIndex === currentImageModal.images.length - 1;
+            nextBtn.disabled = currentImageModal.currentIndex === currentImageModal.medias.length - 1;
         }
 
         function closeImageModal() {
+            const modalContent = document.getElementById('modalImage');
+            // Pausa todos os vídeos dentro do modal
+            const videos = modalContent.getElementsByTagName('video');
+            for (let video of videos) {
+                video.pause();
+            }
+
             document.getElementById('imageModal').style.display = 'none';
             document.body.style.overflow = 'auto';
         }
@@ -544,16 +598,22 @@ if (!empty($_SESSION)) {
         function navigateImage(direction) {
             if (direction === 'prev' && currentImageModal.currentIndex > 0) {
                 currentImageModal.currentIndex--;
-            } else if (direction === 'next' && currentImageModal.currentIndex < currentImageModal.images.length - 1) {
+            } else if (direction === 'next' && currentImageModal.currentIndex < currentImageModal.medias.length - 1) {
                 currentImageModal.currentIndex++;
             }
-            showImageInModal();
+            showMediaInModal(); // Mudar de showImageInModal() para showMediaInModal()
         }
 
         // Event listeners para o modal
         document.querySelector('.close-image-modal').addEventListener('click', closeImageModal);
         document.getElementById('prevImageBtn').addEventListener('click', () => navigateImage('prev'));
         document.getElementById('nextImageBtn').addEventListener('click', () => navigateImage('next'));
+
+        document.getElementById('imageModal').addEventListener('click', function (e) {
+            if (e.target === this) {
+                closeImageModal();
+            }
+        });
 
         document.getElementById('imageModal').addEventListener('click', function (e) {
             if (e.target === this) {

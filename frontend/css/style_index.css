@@ -1206,3 +1206,107 @@ footer {
     height: 100px;
   }
 }
+/* Adicionar ao seu CSS existente */
+.post-media {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.post-media:hover {
+    transform: scale(1.02);
+}
+
+video.post-media {
+    background: #000;
+}
+
+.modal-media {
+    max-width: 100%;
+    max-height: 80vh;
+    display: block;
+    margin: 0 auto;
+}
+
+video.modal-media {
+    width: auto;
+    height: auto;
+    max-width: 90vw;
+    max-height: 80vh;
+}
+/* Adicione ao seu CSS existente */
+.modal-image-container {
+    width: 100%;
+    height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.video-container {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+video.modal-media {
+    width: 100%;
+    max-height: 80vh;
+    background: #000;
+}
+
+img.modal-media {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+}
+
+.video-thumbnail {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.video-thumbnail video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.play-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.7);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 16px;
+}
+
+.video-thumbnail video {
+    pointer-events: none; /* Impede interação com o vídeo no thumbnail */
+}
+
+.modal-media {
+    max-width: 100%;
+    max-height: 80vh;
+    display: block;
+    margin: 0 auto;
+}
+
+video.modal-media {
+    width: auto;
+    height: auto;
+    max-width: 90vw;
+    max-height: 80vh;
+    background: #000;
+}
