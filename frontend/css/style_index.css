@@ -1064,69 +1064,80 @@ footer {
 }
 
 .image-modal-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  padding: 15px 0;
-  color: white;
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px 20px;
+    border-radius: 30px;
+    backdrop-filter: blur(10px);
+    z-index: 10;
 }
 
 .modal-nav-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: white;
-  padding: 12px 16px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 18px;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(10px);
+    background: var(--color-primary);
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .modal-nav-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: scale(1.1);
+    background: var(--color-primary-dark);
+    transform: scale(1.1);
 }
 
 .modal-nav-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--text-muted);
 }
 
 .image-counter {
-  color: white;
-  font-size: 14px;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 8px 16px;
-  border-radius: 20px;
-  backdrop-filter: blur(10px);
+    color: white;
+    font-size: 16px;
+    font-weight: 500;
+    min-width: 60px;
+    text-align: center;
 }
 
 .close-image-modal {
-  position: absolute;
-  top: -50px;
-  right: 0;
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: white;
-  font-size: 24px;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(10px);
-  transition: all 0.2s ease;
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    z-index: 10;
 }
 
 .close-image-modal:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: scale(1.1);
+    background: var(--color-primary);
+    transform: scale(1.1);
 }
 
 /* Responsive adjustments */
@@ -1240,10 +1251,11 @@ video.modal-media {
 /* Adicione ao seu CSS existente */
 .modal-image-container {
     width: 100%;
-    height: 80vh;
+    height: calc(100vh - 100px);
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 20px;
 }
 
 .video-container {

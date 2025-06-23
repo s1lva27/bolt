@@ -207,15 +207,15 @@ if (!empty($_SESSION)) {
         <div class="image-modal-content">
             <button class="close-image-modal">&times;</button>
             <div id="modalImage" class="modal-image-container"></div>
-            <div class="image-modal-nav">
-                <button id="prevImageBtn" class="modal-nav-btn">
-                    <i class="fas fa-chevron-left"></i>
-                </button>
-                <span id="imageCounter" class="image-counter">1 / 1</span>
-                <button id="nextImageBtn" class="modal-nav-btn">
-                    <i class="fas fa-chevron-right"></i>
-                </button>
-            </div>
+        </div>
+        <div class="image-modal-nav">
+            <button id="prevImageBtn" class="modal-nav-btn">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <span id="imageCounter" class="image-counter">1 / 1</span>
+            <button id="nextImageBtn" class="modal-nav-btn">
+                <i class="fas fa-chevron-right"></i>
+            </button>
         </div>
     </div>
 
