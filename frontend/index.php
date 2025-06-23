@@ -420,34 +420,30 @@ if (!empty($_SESSION)) {
                                         else
                                             $gridClass = 'multiple';
                                         ?>
-                                        <div class="images-grid <?php echo $gridClass; ?>"
-                                            data-post-id="<?php echo $publicacaoId; ?>">
-                                            <?php
-                                            $displayCount = min($imageCount, 4);
-                                            for ($i = 0; $i < $displayCount; $i++):
-                                                $media = $images[$i];
-                                                ?>
+                                        <div class="images-grid <?php echo $gridClass; ?>">
+                                            <?php foreach ($images as $i => $media): ?>
                                                 <div class="media-item"
                                                     onclick="openMediaModal(<?php echo $publicacaoId; ?>, <?php echo $i; ?>)">
                                                     <?php if ($media['tipo'] === 'video'): ?>
                                                         <div class="video-container">
-                                                            <video muted preload="metadata">
+                                                            <video muted preload="metadata" playsInline>
                                                                 <source
                                                                     src="images/publicacoes/<?php echo htmlspecialchars($media['url']); ?>"
                                                                     type="video/mp4">
+                                                                Seu navegador não suporta vídeos.
                                                             </video>
                                                         </div>
                                                     <?php else: ?>
                                                         <img src="images/publicacoes/<?php echo htmlspecialchars($media['url']); ?>"
                                                             alt="Imagem da publicação" class="post-media">
-                                                        <?php if ($i == 3 && $imageCount > 4): ?>
-                                                            <div class="more-images-overlay">
-                                                                +<?php echo $imageCount - 4; ?>
-                                                            </div>
-                                                        <?php endif; ?>
+                                                    <?php endif; ?>
+                                                    <?php if ($i == 3 && $imageCount > 4): ?>
+                                                        <div class="more-images-overlay">
+                                                            +<?php echo $imageCount - 4; ?>
+                                                        </div>
                                                     <?php endif; ?>
                                                 </div>
-                                            <?php endfor; ?>
+                                            <?php endforeach; ?>
                                         </div>
                                     </div>
                                 <?php endif; ?>
@@ -499,7 +495,7 @@ if (!empty($_SESSION)) {
 
     <script>
         // Initialize video players after page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Initialize video thumbnails
             initializeVideoThumbnails();
         });
@@ -522,12 +518,18 @@ if (!empty($_SESSION)) {
                 const videoElement = item.querySelector('video');
                 const imgElement = item.querySelector('img');
 
-                medias.push({
-                    url: videoElement
-                        ? videoElement.querySelector('source').src.split('/').pop()
-                        : imgElement.src.split('/').pop(),
-                    tipo: videoElement ? 'video' : 'imagem'
-                });
+                if (videoElement) {
+                    const source = videoElement.querySelector('source');
+                    medias.push({
+                        url: source ? source.src.split('/').pop() : '',
+                        tipo: 'video'
+                    });
+                } else if (imgElement) {
+                    medias.push({
+                        url: imgElement.src.split('/').pop(),
+                        tipo: 'imagem'
+                    });
+                }
             });
 
             if (medias.length === 0) return;
@@ -560,9 +562,12 @@ if (!empty($_SESSION)) {
                 videoContainer.className = 'modal-video-container';
 
                 const video = document.createElement('video');
-                video.autoplay = true;
+                video.autoplay = false;
                 video.controls = false;
                 video.className = 'modal-media';
+                video.muted = false;
+                video.preload = 'metadata';
+                video.playsInline = true;
 
                 const source = document.createElement('source');
                 source.src = `images/publicacoes/${currentMedia.url}`;

@@ -29,13 +29,14 @@
 
 /* Video Element in Posts (Thumbnail Mode) */
 .video-container video {
-  width: 100%;
-  height: auto;
+   width: 100%;
+  height: 100%;
   display: block;
   border-radius: 12px;
   max-height: 500px;
   object-fit: cover;
-  pointer-events: none; /* Prevent direct video interaction in posts */
+  aspect-ratio: 16/9; /* Adicionado para manter proporção */
+  pointer-events: none;
 }
 
 /* Video Thumbnail Overlay - Only shows duration on hover */
@@ -116,16 +117,16 @@
   overflow: hidden;
   box-shadow: var(--shadow-medium);
   background: #000;
+  aspect-ratio: 16/9; /* Garante proporção consistente */
 }
 
 /* Modal Video Element */
 .modal-video-container video {
   width: 100%;
-  height: auto;
+  height: 100%;
   display: block;
   border-radius: 12px;
-  max-height: 80vh;
-  object-fit: contain;
+  object-fit: contain; /* Mantém proporção sem cortar */
 }
 
 /* Custom Controls Container (Only for Modal) */
@@ -465,6 +466,7 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+  max-height: none;
 }
 
 /* Hide native controls */
@@ -474,4 +476,48 @@ video::-webkit-media-controls {
 
 video::-webkit-media-controls-enclosure {
   display: none !important;
+}
+
+.image-modal-nav {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 10px 20px;
+  border-radius: 30px;
+  z-index: 1000;
+}
+.modal-nav-btn {
+  background: var(--orange-primary);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-nav-btn:hover {
+  background: var(--orange-light);
+  transform: scale(1.1);
+}
+
+.modal-nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--orange-dark);
+}
+.image-counter {
+  color: white;
+  font-weight: 500;
+  min-width: 50px;
+  text-align: center;
 }

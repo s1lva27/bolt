@@ -940,11 +940,7 @@ footer {
 }
 
 .images-grid {
-  display: grid;
-  gap: 4px;
-  border-radius: 12px;
-  overflow: hidden;
-  max-height: 400px;
+    position: relative;
 }
 
 /* Single image layout */
@@ -982,13 +978,20 @@ footer {
 
 /* Four or more images layout */
 .images-grid.multiple {
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+}
+/* Esconde todas as imagens após a 4ª */
+.images-grid.multiple .image-item:nth-child(n+5) {
+    display: none;
 }
 
-.images-grid.multiple .image-item {
-  height: 150px;
+/* Mostra o overlay na 4ª imagem quando há mais de 4 */
+.images-grid.multiple .image-item:nth-child(4) .more-images-overlay {
+    display: flex;
 }
+
+
 
 /* Image item styles */
 .image-item {
@@ -1014,21 +1017,21 @@ footer {
   opacity: 0.9;
 }
 
-/* More images overlay */
 .more-images-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 1.5rem;
-  font-weight: 600;
-  backdrop-filter: blur(2px);
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: calc(50% - 2px); /* Metade do grid menos o gap */
+    height: calc(50% - 2px); /* Metade do grid menos o gap */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 2rem;
+    font-weight: bold;
+    z-index: 2;
+    cursor: pointer;
 }
 
 /* Image Modal */
@@ -1307,10 +1310,6 @@ video.modal-media {
 .media-item {
     position: relative;
     overflow: hidden;
-    cursor: pointer;
-    background: var(--bg-input);
-    transition: transform 0.2s ease;
-    border-radius: 8px;
 }
 
 .media-item:hover {
