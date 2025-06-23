@@ -50,6 +50,7 @@ if (!empty($_SESSION)) {
     <title>Orange</title>
     <link rel="stylesheet" href="css/style_index.css">
     <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="css/video-player.css">
     <link rel="icon" type="image/x-icon" href="images/favicon/favicon_orange.png">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -496,7 +497,8 @@ if (!empty($_SESSION)) {
     <!-- Footer -->
     <?php require "parciais/footer.php" ?>
 
-
+    <!-- Include Video Player JavaScript -->
+    <script src="js/video-player.js"></script>
 
     <script>
         // Sistema de visualização de imagens
@@ -555,7 +557,7 @@ if (!empty($_SESSION)) {
                 videoContainer.className = 'video-container';
 
                 const video = document.createElement('video');
-                video.controls = true;
+                video.controls = false; // Disable default controls
                 video.autoplay = true;
                 video.className = 'modal-media';
                 video.style.maxWidth = '100%';
@@ -569,6 +571,11 @@ if (!empty($_SESSION)) {
                 video.appendChild(document.createTextNode('Seu navegador não suporta vídeos.'));
                 videoContainer.appendChild(video);
                 modalContent.appendChild(videoContainer);
+
+                // Initialize modern video player for modal video
+                setTimeout(() => {
+                    new ModernVideoPlayer(video);
+                }, 100);
             } else {
                 const img = document.createElement('img');
                 img.src = `images/publicacoes/${currentMedia.url}`;
@@ -601,19 +608,13 @@ if (!empty($_SESSION)) {
             } else if (direction === 'next' && currentImageModal.currentIndex < currentImageModal.medias.length - 1) {
                 currentImageModal.currentIndex++;
             }
-            showMediaInModal(); // Mudar de showImageInModal() para showMediaInModal()
+            showMediaInModal();
         }
 
         // Event listeners para o modal
         document.querySelector('.close-image-modal').addEventListener('click', closeImageModal);
         document.getElementById('prevImageBtn').addEventListener('click', () => navigateImage('prev'));
         document.getElementById('nextImageBtn').addEventListener('click', () => navigateImage('next'));
-
-        document.getElementById('imageModal').addEventListener('click', function (e) {
-            if (e.target === this) {
-                closeImageModal();
-            }
-        });
 
         document.getElementById('imageModal').addEventListener('click', function (e) {
             if (e.target === this) {
