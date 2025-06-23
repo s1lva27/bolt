@@ -1,8 +1,8 @@
-// Modern Video Player JavaScript
+// Modern Video Player JavaScript - Fixed for Modal-Only Controls
 class ModernVideoPlayer {
   constructor(videoElement) {
     this.video = videoElement;
-    this.container = videoElement.closest('.video-container') || this.createContainer();
+    this.container = videoElement.closest('.modal-video-container');
     this.isPlaying = false;
     this.isDragging = false;
     this.currentTime = 0;
@@ -14,14 +14,6 @@ class ModernVideoPlayer {
     this.init();
   }
   
-  createContainer() {
-    const container = document.createElement('div');
-    container.className = 'video-container';
-    this.video.parentNode.insertBefore(container, this.video);
-    container.appendChild(this.video);
-    return container;
-  }
-  
   init() {
     // Hide native controls
     this.video.controls = false;
@@ -29,8 +21,11 @@ class ModernVideoPlayer {
     
     this.createControls();
     this.bindEvents();
-    this.updateTimeDisplay();
-    this.updateVolumeDisplay();
+    
+    // Wait for video to load metadata
+    if (this.video.readyState >= 1) {
+      this.onLoadedMetadata();
+    }
   }
   
   createControls() {
@@ -67,9 +62,6 @@ class ModernVideoPlayer {
           </div>
         </div>
       </div>
-      <div class="play-overlay">
-        <i class="fas fa-play"></i>
-      </div>
     `;
     
     this.container.insertAdjacentHTML('beforeend', controlsHTML);
@@ -78,7 +70,6 @@ class ModernVideoPlayer {
   
   cacheElements() {
     this.playPauseBtn = this.container.querySelector('.play-pause-btn');
-    this.playOverlay = this.container.querySelector('.play-overlay');
     this.progressContainer = this.container.querySelector('.progress-container');
     this.progressBar = this.container.querySelector('.progress-bar');
     this.progressHandle = this.container.querySelector('.progress-handle');
@@ -107,7 +98,6 @@ class ModernVideoPlayer {
     
     // Control events
     this.playPauseBtn.addEventListener('click', () => this.togglePlay());
-    this.playOverlay.addEventListener('click', () => this.togglePlay());
     this.video.addEventListener('click', () => this.togglePlay());
     
     // Progress bar events
@@ -180,6 +170,12 @@ class ModernVideoPlayer {
     this.updateTimeDisplay();
     this.updateVolumeDisplay();
     this.container.classList.remove('loading');
+    
+    // Initialize progress bar
+    this.updateProgressBar();
+    
+    // Show controls initially
+    this.showControls();
   }
   
   onTimeUpdate() {
@@ -191,7 +187,7 @@ class ModernVideoPlayer {
   }
   
   onProgress() {
-    if (this.video.buffered.length > 0) {
+    if (this.video.buffered.length > 0 && this.duration > 0) {
       const bufferedEnd = this.video.buffered.end(this.video.buffered.length - 1);
       const bufferedPercent = (bufferedEnd / this.duration) * 100;
       this.bufferProgress.style.width = `${bufferedPercent}%`;
@@ -236,9 +232,11 @@ class ModernVideoPlayer {
   }
   
   onProgressClick(e) {
-    const rect = this.progressContainer.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-    this.seekTo(percent);
+    if (this.duration > 0) {
+      const rect = this.progressContainer.getBoundingClientRect();
+      const percent = (e.clientX - rect.left) / rect.width;
+      this.seekTo(percent);
+    }
   }
   
   onProgressMouseDown(e) {
@@ -248,7 +246,7 @@ class ModernVideoPlayer {
   }
   
   onMouseMove(e) {
-    if (this.isDragging) {
+    if (this.isDragging && this.duration > 0) {
       const rect = this.progressContainer.getBoundingClientRect();
       const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       this.seekTo(percent);
@@ -260,16 +258,18 @@ class ModernVideoPlayer {
   }
   
   onTouchStart(e) {
-    this.isDragging = true;
-    const touch = e.touches[0];
-    const rect = this.progressContainer.getBoundingClientRect();
-    const percent = (touch.clientX - rect.left) / rect.width;
-    this.seekTo(percent);
-    e.preventDefault();
+    if (this.duration > 0) {
+      this.isDragging = true;
+      const touch = e.touches[0];
+      const rect = this.progressContainer.getBoundingClientRect();
+      const percent = (touch.clientX - rect.left) / rect.width;
+      this.seekTo(percent);
+      e.preventDefault();
+    }
   }
   
   onTouchMove(e) {
-    if (this.isDragging) {
+    if (this.isDragging && this.duration > 0) {
       e.preventDefault();
       const touch = e.touches[0];
       const rect = this.progressContainer.getBoundingClientRect();
@@ -283,16 +283,20 @@ class ModernVideoPlayer {
   }
   
   seekTo(percent) {
-    const time = percent * this.duration;
-    this.video.currentTime = time;
-    this.currentTime = time;
-    this.updateProgressBar();
-    this.updateTimeDisplay();
+    if (this.duration > 0) {
+      const time = percent * this.duration;
+      this.video.currentTime = time;
+      this.currentTime = time;
+      this.updateProgressBar();
+      this.updateTimeDisplay();
+    }
   }
   
   updateProgressBar() {
-    const percent = (this.currentTime / this.duration) * 100;
-    this.progressBar.style.width = `${percent}%`;
+    if (this.duration > 0) {
+      const percent = (this.currentTime / this.duration) * 100;
+      this.progressBar.style.width = `${percent}%`;
+    }
   }
   
   updateTimeDisplay() {
@@ -301,7 +305,7 @@ class ModernVideoPlayer {
   }
   
   formatTime(seconds) {
-    if (isNaN(seconds)) return '0:00';
+    if (isNaN(seconds) || seconds < 0) return '0:00';
     
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.floor(seconds % 60);
@@ -436,46 +440,154 @@ class ModernVideoPlayer {
     // Remove event listeners and clean up
     this.video.controls = true;
     const controls = this.container.querySelector('.video-controls');
-    const overlay = this.container.querySelector('.play-overlay');
     const loading = this.container.querySelector('.video-loading');
     
     if (controls) controls.remove();
-    if (overlay) overlay.remove();
     if (loading) loading.remove();
   }
 }
 
-// Initialize video players when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-  initializeVideoPlayers();
-});
-
-// Function to initialize all video players
-function initializeVideoPlayers() {
-  const videos = document.querySelectorAll('video:not([data-player-initialized])');
-  videos.forEach(video => {
-    // Skip if already initialized
-    if (video.dataset.playerInitialized) return;
-    
-    // Mark as initialized
-    video.dataset.playerInitialized = 'true';
-    
-    // Create player instance
-    new ModernVideoPlayer(video);
+// Function to get video duration for thumbnails
+function getVideoDuration(videoElement) {
+  return new Promise((resolve) => {
+    if (videoElement.duration && !isNaN(videoElement.duration)) {
+      resolve(videoElement.duration);
+    } else {
+      const handleLoadedMetadata = () => {
+        resolve(videoElement.duration);
+        videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      };
+      videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
+      
+      // Force load metadata if not already loaded
+      if (videoElement.readyState < 1) {
+        videoElement.load();
+      }
+    }
   });
 }
 
+// Function to format time for duration display
+function formatDuration(seconds) {
+  if (isNaN(seconds) || seconds < 0) return '0:00';
+  
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
+
+// Initialize video thumbnails in posts
+function initializeVideoThumbnails() {
+  const videoContainers = document.querySelectorAll('.video-container:not([data-thumbnail-initialized])');
+  
+  videoContainers.forEach(container => {
+    const video = container.querySelector('video');
+    if (!video) return;
+    
+    // Mark as initialized
+    container.dataset.thumbnailInitialized = 'true';
+    
+    // Create thumbnail overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'video-thumbnail-overlay';
+    
+    const playButton = document.createElement('button');
+    playButton.className = 'video-play-button';
+    playButton.innerHTML = '<i class="fas fa-play"></i>';
+    
+    overlay.appendChild(playButton);
+    container.appendChild(overlay);
+    
+    // Add duration display
+    getVideoDuration(video).then(duration => {
+      if (duration && !isNaN(duration)) {
+        const durationEl = document.createElement('div');
+        durationEl.className = 'video-duration';
+        durationEl.textContent = formatDuration(duration);
+        container.appendChild(durationEl);
+      }
+    });
+    
+    // Handle click to open modal
+    container.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openVideoModal(video.src);
+    });
+  });
+}
+
+// Function to open video in modal
+function openVideoModal(videoSrc) {
+  // Create modal
+  const modal = document.createElement('div');
+  modal.className = 'image-modal';
+  modal.style.display = 'flex';
+  
+  const modalContent = document.createElement('div');
+  modalContent.className = 'image-modal-content';
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'close-image-modal';
+  closeBtn.innerHTML = '&times;';
+  
+  const videoContainer = document.createElement('div');
+  videoContainer.className = 'modal-video-container';
+  
+  const video = document.createElement('video');
+  video.src = videoSrc;
+  video.autoplay = true;
+  video.controls = false;
+  video.muted = false; // Start unmuted in modal
+  
+  videoContainer.appendChild(video);
+  modalContent.appendChild(closeBtn);
+  modalContent.appendChild(videoContainer);
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+  
+  // Initialize video player for modal
+  const player = new ModernVideoPlayer(video);
+  
+  // Close modal handlers
+  const closeModal = () => {
+    player.destroy();
+    document.body.removeChild(modal);
+    document.body.style.overflow = 'auto';
+  };
+  
+  closeBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+  
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      closeModal();
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  
+  document.addEventListener('keydown', escHandler);
+  document.body.style.overflow = 'hidden';
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  initializeVideoThumbnails();
+});
+
 // Function to initialize new videos (for dynamically loaded content)
 function initializeNewVideos() {
-  initializeVideoPlayers();
+  initializeVideoThumbnails();
 }
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ModernVideoPlayer, initializeVideoPlayers, initializeNewVideos };
+  module.exports = { ModernVideoPlayer, initializeVideoThumbnails, initializeNewVideos };
 }
 
 // Make functions globally available
 window.ModernVideoPlayer = ModernVideoPlayer;
-window.initializeVideoPlayers = initializeVideoPlayers;
+window.initializeVideoThumbnails = initializeVideoThumbnails;
 window.initializeNewVideos = initializeNewVideos;

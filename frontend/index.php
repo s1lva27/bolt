@@ -431,7 +431,7 @@ if (!empty($_SESSION)) {
                                                     onclick="openMediaModal(<?php echo $publicacaoId; ?>, <?php echo $i; ?>)">
                                                     <?php if ($media['tipo'] === 'video'): ?>
                                                         <div class="video-container">
-                                                            <video class="post-media" muted preload="metadata">
+                                                            <video muted preload="metadata">
                                                                 <source
                                                                     src="images/publicacoes/<?php echo htmlspecialchars($media['url']); ?>"
                                                                     type="video/mp4">
@@ -500,8 +500,8 @@ if (!empty($_SESSION)) {
     <script>
         // Initialize video players after page load
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize video players
-            initializeVideoPlayers();
+            // Initialize video thumbnails
+            initializeVideoThumbnails();
         });
 
         // Sistema de visualização de imagens
@@ -557,14 +557,12 @@ if (!empty($_SESSION)) {
 
             if (currentMedia.tipo === 'video') {
                 const videoContainer = document.createElement('div');
-                videoContainer.className = 'video-container modal-media-container';
+                videoContainer.className = 'modal-video-container';
 
                 const video = document.createElement('video');
-                video.controls = false;
                 video.autoplay = true;
+                video.controls = false;
                 video.className = 'modal-media';
-                video.style.maxWidth = '100%';
-                video.style.maxHeight = '80vh';
 
                 const source = document.createElement('source');
                 source.src = `images/publicacoes/${currentMedia.url}`;
