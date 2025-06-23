@@ -1,27 +1,25 @@
 <?php
-include "ligabd.php";
+require 'ligabd.php';
 
-if (!isset($_GET['post_id'])) {
-    echo json_encode([]);
+if (isset($_GET['post_id'])) {
+    $postId = intval($_GET['post_id']);
+    
+    $sql = "SELECT url, content_warning, ordem 
+            FROM publicacao_medias 
+            WHERE publicacao_id = $postId
+            ORDER BY ordem ASC";
+    
+    $result = mysqli_query($con, $sql);
+    $images = [];
+    
+    while ($row = mysqli_fetch_assoc($result)) {
+        $images[] = $row;
+    }
+    
+    header('Content-Type: application/json');
+    echo json_encode($images);
     exit;
 }
 
-$postId = intval($_GET['post_id']);
-
-$sql = "SELECT url, content_warning FROM publicacao_medias 
-        WHERE publicacao_id = ? AND tipo = 'imagem' 
-        ORDER BY ordem ASC";
-
-$stmt = $con->prepare($sql);
-$stmt->bind_param("i", $postId);
-$stmt->execute();
-$result = $stmt->get_result();
-
-$images = [];
-while ($row = $result->fetch_assoc()) {
-    $images[] = $row;
-}
-
-header('Content-Type: application/json');
-echo json_encode($images);
-?>
+http_response_code(400);
+echo json_encode(['error' => 'Post ID not provided']);

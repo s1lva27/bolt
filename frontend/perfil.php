@@ -2,6 +2,20 @@
 session_start();
 require "../backend/ligabd.php";
 
+
+function getPostImages($con, $postId)
+{
+    $sql = "SELECT url, content_warning FROM publicacao_medias 
+            WHERE publicacao_id = $postId
+            ORDER BY ordem ASC";
+    $result = mysqli_query($con, $sql);
+    $images = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $images[] = $row;
+    }
+    return $images;
+}
+
 // Função para transformar URLs em links clicáveis
 function makeLinksClickable($text)
 {
@@ -83,6 +97,7 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
     <link rel="stylesheet" href="css/app.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="css/style_perfil.css">
+    <link rel="stylesheet" href="css/style_index.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="images/favicon/favicon_orange.png">
 
@@ -350,7 +365,47 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
                             </div>
                             <div class="post-content">
                                 <p><?php echo nl2br(makeLinksClickable(htmlspecialchars($publicacao['conteudo']))); ?></p>
+
+                                <?php
+                                // Buscar imagens da publicação
+                                $images = getPostImages($con, $publicacao['id_publicacao']);
+                                if (!empty($images)): ?>
+                                    <div class="post-images">
+                                        <?php
+                                        $imageCount = count($images);
+                                        $gridClass = '';
+                                        if ($imageCount == 1)
+                                            $gridClass = 'single';
+                                        elseif ($imageCount == 2)
+                                            $gridClass = 'double';
+                                        elseif ($imageCount == 3)
+                                            $gridClass = 'triple';
+                                        else
+                                            $gridClass = 'multiple';
+                                        ?>
+                                        <div class="images-grid <?php echo $gridClass; ?>"
+                                            data-post-id="<?php echo $publicacao['id_publicacao']; ?>">
+                                            <?php
+                                            $displayCount = min($imageCount, 4);
+                                            for ($i = 0; $i < $displayCount; $i++):
+                                                $image = $images[$i];
+                                                ?>
+                                                <div class="image-item"
+                                                    onclick="openImageModal(<?php echo $publicacao['id_publicacao']; ?>, <?php echo $i; ?>)">
+                                                    <img src="images/publicacoes/<?php echo htmlspecialchars($image['url']); ?>"
+                                                        alt="Imagem da publicação" class="post-image">
+                                                    <?php if ($i == 3 && $imageCount > 4): ?>
+                                                        <div class="more-images-overlay">
+                                                            +<?php echo $imageCount - 4; ?>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                </div>
+                                            <?php endfor; ?>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
                             </div>
+
                             <div class="post-actions">
                                 <button class="like-btn <?php echo $likedClass; ?>"
                                     data-publicacao-id="<?php echo $publicacao['id_publicacao']; ?>">
@@ -398,6 +453,24 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
                 </button>
             </div>
         </div>
+
+        <!-- Modal para imagem expandida -->
+        <div id="imageModal" class="image-modal">
+            <div class="image-modal-content">
+                <button class="close-image-modal">&times;</button>
+                <img id="modalImage" class="modal-image" src="" alt="Imagem expandida">
+                <div class="image-modal-nav">
+                    <button id="prevImageBtn" class="modal-nav-btn">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span id="imageCounter" class="image-counter">1 / 1</span>
+                    <button id="nextImageBtn" class="modal-nav-btn">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Toast Notification -->
         <div id="toast" class="toast">
             <div class="toast-icon">
@@ -415,7 +488,7 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
         // Funcionalidades de interação
         // Like
         document.querySelectorAll('.like-btn').forEach(button => {
-            button.addEventListener('click', function() {
+            button.addEventListener('click', function () {
                 const publicacaoId = this.getAttribute('data-publicacao-id');
                 const likeCount = this.querySelector('.like-count');
 
@@ -426,23 +499,23 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
                     },
                     body: `id_publicacao=${publicacaoId}`
                 })
-                .then(response => response.text())
-                .then(data => {
-                    if (data === 'liked') {
-                        this.classList.add('liked');
-                        likeCount.textContent = parseInt(likeCount.textContent) + 1;
-                    } else if (data === 'unliked') {
-                        this.classList.remove('liked');
-                        likeCount.textContent = parseInt(likeCount.textContent) - 1;
-                    }
-                })
-                .catch(error => console.error('Error:', error));
+                    .then(response => response.text())
+                    .then(data => {
+                        if (data === 'liked') {
+                            this.classList.add('liked');
+                            likeCount.textContent = parseInt(likeCount.textContent) + 1;
+                        } else if (data === 'unliked') {
+                            this.classList.remove('liked');
+                            likeCount.textContent = parseInt(likeCount.textContent) - 1;
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
             });
         });
 
         // Salvar publicação
         document.querySelectorAll('.save-btn').forEach(button => {
-            button.addEventListener('click', function() {
+            button.addEventListener('click', function () {
                 const publicacaoId = this.getAttribute('data-publicacao-id');
                 const isCurrentlySaved = this.classList.contains('saved');
 
@@ -453,20 +526,108 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
                     },
                     body: `id_publicacao=${publicacaoId}`
                 })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        if (data.action === 'saved') {
-                            this.classList.add('saved');
-                            showToast('Adicionado aos itens salvos');
-                        } else {
-                            this.classList.remove('saved');
-                            showToast('Removido dos itens salvos');
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (data.action === 'saved') {
+                                this.classList.add('saved');
+                                showToast('Adicionado aos itens salvos');
+                            } else {
+                                this.classList.remove('saved');
+                                showToast('Removido dos itens salvos');
+                            }
                         }
-                    }
-                })
-                .catch(error => console.error('Error:', error));
+                    })
+                    .catch(error => console.error('Error:', error));
             });
+        });
+
+        // Sistema de visualização de imagens
+        let currentImageModal = {
+            postId: null,
+            currentIndex: 0,
+            images: []
+        };
+
+        function openImageModal(postId, imageIndex = 0) {
+            // Busca as imagens diretamente do elemento DOM
+            const postElement = document.querySelector(`.post[data-post-id="${postId}"]`);
+            if (!postElement) return;
+
+            const images = [];
+            const imageElements = postElement.querySelectorAll('.post-image');
+            imageElements.forEach(img => {
+                images.push({
+                    url: img.src.split('/').pop(), // Extrai apenas o nome do arquivo
+                    content_warning: 'none'
+                });
+            });
+
+            if (images.length === 0) return;
+
+            currentImageModal = {
+                postId,
+                currentIndex: imageIndex,
+                images
+            };
+
+            showImageInModal();
+            document.getElementById('imageModal').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function showImageInModal() {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            const imageCounter = document.getElementById('imageCounter');
+            const prevBtn = document.getElementById('prevImageBtn');
+            const nextBtn = document.getElementById('nextImageBtn');
+
+            const currentImage = currentImageModal.images[currentImageModal.currentIndex];
+            modalImage.src = `images/publicacoes/${currentImage.url}`;
+
+            imageCounter.textContent = `${currentImageModal.currentIndex + 1} / ${currentImageModal.images.length}`;
+
+            prevBtn.disabled = currentImageModal.currentIndex === 0;
+            nextBtn.disabled = currentImageModal.currentIndex === currentImageModal.images.length - 1;
+        }
+
+        function closeImageModal() {
+            document.getElementById('imageModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        function navigateImage(direction) {
+            if (direction === 'prev' && currentImageModal.currentIndex > 0) {
+                currentImageModal.currentIndex--;
+            } else if (direction === 'next' && currentImageModal.currentIndex < currentImageModal.images.length - 1) {
+                currentImageModal.currentIndex++;
+            }
+            showImageInModal();
+        }
+
+        // Event listeners para o modal
+        document.querySelector('.close-image-modal').addEventListener('click', closeImageModal);
+        document.getElementById('prevImageBtn').addEventListener('click', () => navigateImage('prev'));
+        document.getElementById('nextImageBtn').addEventListener('click', () => navigateImage('next'));
+
+        document.getElementById('imageModal').addEventListener('click', function (e) {
+            if (e.target === this) {
+                closeImageModal();
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            const modal = document.getElementById('imageModal');
+            if (modal.style.display === 'flex') {
+                if (e.key === 'Escape') {
+                    closeImageModal();
+                } else if (e.key === 'ArrowLeft') {
+                    navigateImage('prev');
+                } else if (e.key === 'ArrowRight') {
+                    navigateImage('next');
+                }
+            }
         });
 
         // Modal de comentários
@@ -490,39 +651,91 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
 
         function openCommentsModal(postId) {
             currentPostId = postId;
-            
-            fetch(`../backend/get_post.php?id=${postId}`)
-                .then(response => response.json())
-                .then(post => {
-                    const dataCriacao = new Date(post.data_criacao);
-                    const dataFormatada = `${dataCriacao.getDate().toString().padStart(2, '0')}-${(dataCriacao.getMonth() + 1).toString().padStart(2, '0')}-${dataCriacao.getFullYear()} ${dataCriacao.getHours().toString().padStart(2, '0')}:${dataCriacao.getMinutes().toString().padStart(2, '0')}`;
-                    
-                    document.getElementById('modalPostContent').innerHTML = `
-                        <div class="post">
-                            <div class="post-header">
-                                <a href="perfil.php?id=${post.id_utilizador}">
-                                    <img src="images/perfil/${post.foto_perfil || 'default-profile.jpg'}" alt="User" class="profile-pic">
-                                </a>
-                                <div class="post-info">
-                                    <a href="perfil.php?id=${post.id_utilizador}" class="profile-link">
-                                        <h3>${post.nick}</h3>
-                                    </a>
-                                    <p>${post.ocupacao || 'Utilizador'}</p>
-                                    <span class="timestamp">${dataFormatada}</span>
+
+            // Primeiro, tente pegar o elemento da publicação diretamente do DOM
+            const postElement = document.querySelector(`.post[data-post-id="${postId}"]`);
+            if (postElement) {
+                // Clone o elemento da publicação para mostrar no modal
+                const postClone = postElement.cloneNode(true);
+
+                // Remova os botões de ação para economizar espaço
+                const actions = postClone.querySelector('.post-actions');
+                if (actions) actions.remove();
+
+                // Adicione ao modal
+                document.getElementById('modalPostContent').innerHTML = '';
+                document.getElementById('modalPostContent').appendChild(postClone);
+
+                // Carregue os comentários
+                loadComments(postId);
+
+                // Mostre o modal
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            } else {
+                // Fallback: carregue via AJAX se não encontrar no DOM
+                fetch(`../backend/get_post.php?id=${postId}`)
+                    .then(response => response.json())
+                    .then(post => {
+                        const dataCriacao = new Date(post.data_criacao);
+                        const dataFormatada = `${dataCriacao.getDate().toString().padStart(2, '0')}-${(dataCriacao.getMonth() + 1).toString().padStart(2, '0')}-${dataCriacao.getFullYear()} ${dataCriacao.getHours().toString().padStart(2, '0')}:${dataCriacao.getMinutes().toString().padStart(2, '0')}`;
+
+                        let imagesHTML = '';
+                        if (post.images && post.images.length > 0) {
+                            // Construir HTML para as imagens (igual ao do index.php)
+                            const imageCount = post.images.length;
+                            const gridClass = imageCount === 1 ? 'single' :
+                                imageCount === 2 ? 'double' :
+                                    imageCount === 3 ? 'triple' : 'multiple';
+
+                            imagesHTML = `<div class="post-images">
+                        <div class="images-grid ${gridClass}">
+                            ${post.images.slice(0, 4).map((image, i) => `
+                                <div class="image-item">
+                                    <img src="images/publicacoes/${image.url}" alt="Imagem da publicação" class="post-image">
+                                    ${i === 3 && imageCount > 4 ? `
+                                        <div class="more-images-overlay">
+                                            +${imageCount - 4}
+                                        </div>
+                                    ` : ''}
                                 </div>
-                            </div>
-                            <div class="post-content">
-                                <p>${post.conteudo.replace(/\n/g, '<br>')}</p>
+                            `).join('')}
+                        </div>
+                    </div>`;
+                        }
+
+                        document.getElementById('modalPostContent').innerHTML = `
+                    <div class="post">
+                        <div class="post-header">
+                            <a href="perfil.php?id=${post.id_utilizador}">
+                                <img src="images/perfil/${post.foto_perfil || 'default-profile.jpg'}" alt="User" class="profile-pic">
+                            </a>
+                            <div class="post-info">
+                                <a href="perfil.php?id=${post.id_utilizador}" class="profile-link">
+                                    <h3>${post.nick}</h3>
+                                </a>
+                                <p>${post.ocupacao || 'Utilizador'}</p>
+                                <span class="timestamp">${dataFormatada}</span>
                             </div>
                         </div>
-                    `;
-                    
-                    loadComments(postId);
-                });
+                        <div class="post-content">
+                            <p>${post.conteudo.replace(/\n/g, '<br>')}</p>
+                            ${imagesHTML}
+                        </div>
+                    </div>
+                `;
 
-            document.getElementById('currentPostId').value = postId;
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
+                        loadComments(postId);
+                    })
+                    .catch(error => {
+                        console.error('Error loading post:', error);
+                        document.getElementById('modalPostContent').innerHTML = '<p>Erro ao carregar a publicação.</p>';
+                    });
+
+                document.getElementById('currentPostId').value = postId;
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
         }
 
         function loadComments(postId) {
@@ -535,7 +748,7 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
                     comments.forEach(comment => {
                         const dataComentario = new Date(comment.data);
                         const dataComentarioFormatada = `${dataComentario.getDate().toString().padStart(2, '0')}-${(dataComentario.getMonth() + 1).toString().padStart(2, '0')}-${dataComentario.getFullYear()} ${dataComentario.getHours().toString().padStart(2, '0')}:${dataComentario.getMinutes().toString().padStart(2, '0')}`;
-                        
+
                         const commentItem = document.createElement('div');
                         commentItem.className = 'comment-item';
                         commentItem.innerHTML = `
@@ -558,34 +771,34 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
         }
 
         // Envio de comentário
-        document.getElementById('commentForm').addEventListener('submit', function(e) {
+        document.getElementById('commentForm').addEventListener('submit', function (e) {
             e.preventDefault();
-            
+
             const commentInput = document.getElementById('commentInput');
             const content = commentInput.value.trim();
-            
+
             if (content && currentPostId) {
                 const formData = new FormData();
                 formData.append('post_id', currentPostId);
                 formData.append('content', content);
-                
+
                 fetch('../backend/add_comment.php', {
                     method: 'POST',
                     body: formData
                 })
-                .then(response => response.json())
-                .then(result => {
-                    if (result.success) {
-                        commentInput.value = '';
-                        loadComments(currentPostId);
-                        
-                        // Atualiza contador de comentários
-                        const commentCount = document.querySelector(`.comment-btn[onclick*="${currentPostId}"] .comment-count`);
-                        if (commentCount) {
-                            commentCount.textContent = parseInt(commentCount.textContent) + 1;
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.success) {
+                            commentInput.value = '';
+                            loadComments(currentPostId);
+
+                            // Atualiza contador de comentários
+                            const commentCount = document.querySelector(`.comment-btn[onclick*="${currentPostId}"] .comment-count`);
+                            if (commentCount) {
+                                commentCount.textContent = parseInt(commentCount.textContent) + 1;
+                            }
                         }
-                    }
-                });
+                    });
             }
         });
 
@@ -594,12 +807,12 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
             const toast = document.getElementById('toast');
             const toastMessage = document.getElementById('toast-message');
             toastMessage.textContent = message;
-            
+
             toast.style.display = 'flex';
             setTimeout(() => {
                 toast.classList.add('show');
             }, 10);
-            
+
             setTimeout(() => {
                 toast.classList.remove('show');
                 setTimeout(() => {
@@ -608,7 +821,7 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
             }, 3000);
         }
     </script>
-    
+
 </body>
 
 </html>

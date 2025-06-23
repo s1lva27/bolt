@@ -173,176 +173,6 @@ if (!empty($_SESSION)) {
         .remove-image-btn:hover {
             background: var(--color-primary);
         }
-
-        /* Galeria de imagens nas publicações */
-        .post-images {
-            margin-top: 15px;
-        }
-
-        .images-grid {
-            display: grid;
-            gap: 8px;
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .images-grid.single {
-            grid-template-columns: 1fr;
-        }
-
-        .images-grid.double {
-            grid-template-columns: 1fr 1fr;
-        }
-
-        .images-grid.triple {
-            grid-template-columns: 2fr 1fr;
-            grid-template-rows: 1fr 1fr;
-        }
-
-        .images-grid.multiple {
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr 1fr;
-        }
-
-        .image-item {
-            position: relative;
-            overflow: hidden;
-            cursor: pointer;
-            background: var(--bg-input);
-            min-height: 200px;
-        }
-
-        .images-grid.single .image-item {
-            min-height: 400px;
-        }
-
-        .images-grid.triple .image-item:first-child {
-            grid-row: 1 / 3;
-        }
-
-        .post-image {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.3s ease;
-        }
-
-        .image-item:hover .post-image {
-            transform: scale(1.02);
-        }
-
-        .more-images-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.5rem;
-            font-weight: 600;
-        }
-
-        /* Modal para imagem expandida */
-        .image-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.95);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 2000;
-            padding: 20px;
-        }
-
-        .image-modal-content {
-            position: relative;
-            max-width: 90vw;
-            max-height: 90vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .modal-image {
-            max-width: 100%;
-            max-height: 80vh;
-            object-fit: contain;
-            border-radius: 8px;
-        }
-
-        .image-modal-nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 0;
-            color: white;
-        }
-
-        .modal-nav-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 18px;
-            transition: background-color 0.2s ease;
-        }
-
-        .modal-nav-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        .modal-nav-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .image-counter {
-            color: white;
-            font-size: 14px;
-        }
-
-        .close-image-modal {
-            position: absolute;
-            top: -40px;
-            right: 0;
-            background: none;
-            border: none;
-            color: white;
-            font-size: 30px;
-            cursor: pointer;
-            padding: 5px;
-        }
-
-        /* Responsividade */
-        @media (max-width: 768px) {
-            .preview-grid {
-                grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-                gap: 8px;
-            }
-
-            .images-grid.double,
-            .images-grid.triple,
-            .images-grid.multiple {
-                grid-template-columns: 1fr;
-                grid-template-rows: auto;
-            }
-
-            .images-grid.triple .image-item:first-child {
-                grid-row: auto;
-            }
-
-            .image-item {
-                min-height: 250px;
-            }
-        }
     </style>
 </head>
 
@@ -411,7 +241,8 @@ if (!empty($_SESSION)) {
         <main class="feed">
             <!-- Create Post -->
             <div class="create-post">
-                <form method="POST" action="../backend/criar_publicacao.php" enctype="multipart/form-data" id="postForm">
+                <form method="POST" action="../backend/criar_publicacao.php" enctype="multipart/form-data"
+                    id="postForm">
                     <input type="file" name="media0" hidden id="media0" accept="image/*">
                     <input type="file" name="media1" hidden id="media1" accept="image/*">
                     <input type="file" name="media2" hidden id="media2" accept="image/*">
@@ -430,13 +261,14 @@ if (!empty($_SESSION)) {
                     <div id="previewGrid" class="flex gap-1">
                         <?php
                         for ($i = 0; $i < 5; $i++) {
-                        ?>
-                            <div class="relative w-[100px] h-[100px] rounded-lg bg-gray-100 overflow-hidden hidden" id="preview-container-<?= $i ?>">
+                            ?>
+                            <div class="relative w-[100px] h-[100px] rounded-lg bg-gray-100 overflow-hidden hidden"
+                                id="preview-container-<?= $i ?>">
                                 <img id="preview-img-<?= $i ?>" class="object-cover w-full h-full">
                                 <button type="button" onclick="removeFile(<?= $i ?>)"
                                     class="absolute top-1 right-1 bg-[#FF5722] hover:bg-[#bf4019] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">×</button>
                             </div>
-                        <?php
+                            <?php
                         }
                         ?>
                     </div>
@@ -464,11 +296,11 @@ if (!empty($_SESSION)) {
                     previewImgs[i] = document.getElementById('preview-img-' + i);
                     previewContainers[i] = document.getElementById('preview-container-' + i);
 
-                    inputFiles[i].addEventListener('change', function(e) {
+                    inputFiles[i].addEventListener('change', function (e) {
                         const file = e.target.files[0];
                         if (file) {
                             const reader = new FileReader();
-                            reader.onload = function(e) {
+                            reader.onload = function (e) {
                                 previewImgs[i].src = e.target.result;
                                 previewContainers[i].classList.remove('hidden');
                             }
@@ -550,7 +382,7 @@ if (!empty($_SESSION)) {
 
                         // Buscar imagens da publicação
                         $images = getPostImages($con, $publicacaoId);
-                ?>
+                        ?>
 
                         <article class="post" data-post-id="<?php echo $publicacaoId; ?>">
                             <div class="post-header">
@@ -568,6 +400,7 @@ if (!empty($_SESSION)) {
                                     <span
                                         class="timestamp"><?php echo date('d-m-Y H:i', strtotime($linha['data_criacao'])); ?></span>
                                 </div>
+
                             </div>
                             <div class="post-content">
                                 <p><?php echo nl2br(makeLinksClickable($linha['conteudo'])); ?></p>
@@ -577,18 +410,24 @@ if (!empty($_SESSION)) {
                                         <?php
                                         $imageCount = count($images);
                                         $gridClass = '';
-                                        if ($imageCount == 1) $gridClass = 'single';
-                                        elseif ($imageCount == 2) $gridClass = 'double';
-                                        elseif ($imageCount == 3) $gridClass = 'triple';
-                                        else $gridClass = 'multiple';
+                                        if ($imageCount == 1)
+                                            $gridClass = 'single';
+                                        elseif ($imageCount == 2)
+                                            $gridClass = 'double';
+                                        elseif ($imageCount == 3)
+                                            $gridClass = 'triple';
+                                        else
+                                            $gridClass = 'multiple';
                                         ?>
-                                        <div class="images-grid <?php echo $gridClass; ?>" data-post-id="<?php echo $publicacaoId; ?>">
+                                        <div class="images-grid <?php echo $gridClass; ?>"
+                                            data-post-id="<?php echo $publicacaoId; ?>">
                                             <?php
                                             $displayCount = min($imageCount, 4);
                                             for ($i = 0; $i < $displayCount; $i++):
                                                 $image = $images[$i];
-                                            ?>
-                                                <div class="image-item" onclick="openImageModal(<?php echo $publicacaoId; ?>, <?php echo $i; ?>)">
+                                                ?>
+                                                <div class="image-item"
+                                                    onclick="openImageModal(<?php echo $publicacaoId; ?>, <?php echo $i; ?>)">
                                                     <img src="images/publicacoes/<?php echo htmlspecialchars($image['url']); ?>"
                                                         alt="Imagem da publicação" class="post-image">
                                                     <?php if ($i == 3 && $imageCount > 4): ?>
@@ -620,7 +459,7 @@ if (!empty($_SESSION)) {
                                 </button>
                             </div>
                         </article>
-                <?php
+                        <?php
                     }
                 } else {
                     echo "<p class='no-posts'>Sem publicações para mostrar.</p>";
@@ -644,12 +483,9 @@ if (!empty($_SESSION)) {
     <!-- Footer -->
     <?php require "parciais/footer.php" ?>
 
-    <script>
-        // Inicializar sistema de upload
-        document.addEventListener('DOMContentLoaded', function() {
-            new MultipleImageUpload();
-        });
 
+
+    <script>
         // Sistema de visualização de imagens
         let currentImageModal = {
             postId: null,
@@ -658,21 +494,30 @@ if (!empty($_SESSION)) {
         };
 
         function openImageModal(postId, imageIndex = 0) {
-            // Buscar todas as imagens da publicação
-            fetch(`../backend/get_post_images.php?post_id=${postId}`)
-                .then(response => response.json())
-                .then(images => {
-                    currentImageModal.postId = postId;
-                    currentImageModal.currentIndex = imageIndex;
-                    currentImageModal.images = images;
+            // Busca as imagens diretamente do elemento DOM (mais eficiente)
+            const postElement = document.querySelector(`.post[data-post-id="${postId}"]`);
+            if (!postElement) return;
 
-                    showImageInModal();
-                    document.getElementById('imageModal').style.display = 'flex';
-                    document.body.style.overflow = 'hidden';
-                })
-                .catch(error => {
-                    console.error('Erro ao carregar imagens:', error);
+            const images = [];
+            const imageElements = postElement.querySelectorAll('.post-image');
+            imageElements.forEach(img => {
+                images.push({
+                    url: img.src.split('/').pop(), // Extrai apenas o nome do arquivo
+                    content_warning: 'none'
                 });
+            });
+
+            if (images.length === 0) return;
+
+            currentImageModal = {
+                postId,
+                currentIndex: imageIndex,
+                images
+            };
+
+            showImageInModal();
+            document.getElementById('imageModal').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
         }
 
         function showImageInModal() {
@@ -710,13 +555,13 @@ if (!empty($_SESSION)) {
         document.getElementById('prevImageBtn').addEventListener('click', () => navigateImage('prev'));
         document.getElementById('nextImageBtn').addEventListener('click', () => navigateImage('next'));
 
-        document.getElementById('imageModal').addEventListener('click', function(e) {
+        document.getElementById('imageModal').addEventListener('click', function (e) {
             if (e.target === this) {
                 closeImageModal();
             }
         });
 
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', function (e) {
             const modal = document.getElementById('imageModal');
             if (modal.style.display === 'flex') {
                 if (e.key === 'Escape') {
@@ -731,17 +576,17 @@ if (!empty($_SESSION)) {
 
         // Like functionality
         document.querySelectorAll('.like-btn').forEach(button => {
-            button.addEventListener('click', function() {
+            button.addEventListener('click', function () {
                 const publicacaoId = this.getAttribute('data-publicacao-id');
                 const likeCount = this.querySelector('.like-count');
 
                 fetch('../backend/like.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: `id_publicacao=${publicacaoId}`
-                    })
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `id_publicacao=${publicacaoId}`
+                })
                     .then(response => response.text())
                     .then(data => {
                         if (data === 'liked') {
@@ -783,38 +628,76 @@ if (!empty($_SESSION)) {
         function openCommentsModal(postId) {
             currentPostId = postId;
 
-            fetch(`../backend/get_post.php?id=${postId}`)
-                .then(response => response.json())
-                .then(post => {
-                    const dataCriacao = new Date(post.data_criacao);
-                    const dataFormatada = `${dataCriacao.getDate().toString().padStart(2, '0')}-${(dataCriacao.getMonth() + 1).toString().padStart(2, '0')}-${dataCriacao.getFullYear()} ${dataCriacao.getHours().toString().padStart(2, '0')}:${dataCriacao.getMinutes().toString().padStart(2, '0')}`;
+            // Primeiro, pegue o elemento da publicação diretamente do DOM
+            const postElement = document.querySelector(`.post[data-post-id="${postId}"]`);
+            if (postElement) {
+                // Clone o elemento da publicação para mostrar no modal
+                const postClone = postElement.cloneNode(true);
 
-                    document.getElementById('modalPostContent').innerHTML = `
-        <div class="post">
-          <div class="post-header">
-            <a href="perfil.php?id=${post.id_utilizador}">
-              <img src="images/perfil/${post.foto_perfil || 'default-profile.jpg'}" alt="User" class="profile-pic">
-            </a>
-            <div class="post-info">
-              <a href="perfil.php?id=${post.id_utilizador}" class="profile-link">
-                <h3>${post.nick}</h3>
-              </a>
-              <p>${post.ocupacao || 'Utilizador'}</p>
-              <span class="timestamp">${dataFormatada}</span>
-            </div>
-          </div>
-          <div class="post-content">
-            <p>${post.conteudo.replace(/\n/g, '<br>')}</p>
-          </div>
-        </div>
-      `;
+                // Remova os botões de ação para economizar espaço
+                const actions = postClone.querySelector('.post-actions');
+                if (actions) actions.remove();
 
-                    loadComments(postId);
-                });
+                // Adicione ao modal
+                document.getElementById('modalPostContent').innerHTML = '';
+                document.getElementById('modalPostContent').appendChild(postClone);
 
-            document.getElementById('currentPostId').value = postId;
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
+                // Carregue os comentários
+                loadComments(postId);
+
+                // Mostre o modal
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            } else {
+                // Fallback: carregue via AJAX se não encontrar no DOM
+                fetch(`../backend/get_post.php?id=${postId}`)
+                    .then(response => response.json())
+                    .then(post => {
+                        const dataCriacao = new Date(post.data_criacao);
+                        const dataFormatada = `${dataCriacao.getDate().toString().padStart(2, '0')}-${(dataCriacao.getMonth() + 1).toString().padStart(2, '0')}-${dataCriacao.getFullYear()} ${dataCriacao.getHours().toString().padStart(2, '0')}:${dataCriacao.getMinutes().toString().padStart(2, '0')}`;
+
+                        let imagesHTML = '';
+                        if (post.images && post.images.length > 0) {
+                            imagesHTML = `
+                        <div class="post-images">
+                            <div class="images-grid single">
+                                <img src="images/publicacoes/${post.images[0].url}" alt="Imagem da publicação" class="post-image">
+                            </div>
+                        </div>
+                    `;
+                        }
+
+                        document.getElementById('modalPostContent').innerHTML = `
+                    <div class="post">
+                        <div class="post-header">
+                            <a href="perfil.php?id=${post.id_utilizador}">
+                                <img src="images/perfil/${post.foto_perfil || 'default-profile.jpg'}" alt="User" class="profile-pic">
+                            </a>
+                            <div class="post-info">
+                                <a href="perfil.php?id=${post.id_utilizador}" class="profile-link">
+                                    <h3>${post.nick}</h3>
+                                </a>
+                                <p>${post.ocupacao || 'Utilizador'}</p>
+                                <span class="timestamp">${dataFormatada}</span>
+                            </div>
+                        </div>
+                        <div class="post-content">
+                            <p>${post.conteudo.replace(/\n/g, '<br>')}</p>
+                            ${imagesHTML}
+                        </div>
+                    </div>
+                `;
+
+                        loadComments(postId);
+                    })
+                    .catch(error => {
+                        console.error('Error loading post:', error);
+                        document.getElementById('modalPostContent').innerHTML = '<p>Erro ao carregar a publicação.</p>';
+                    });
+
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
         }
 
         // Função para carregar comentários
@@ -871,16 +754,16 @@ if (!empty($_SESSION)) {
 
         // Save functionality
         document.querySelectorAll('.save-btn').forEach(button => {
-            button.addEventListener('click', function() {
+            button.addEventListener('click', function () {
                 const publicacaoId = this.getAttribute('data-publicacao-id');
 
                 fetch('../backend/save_post.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: `id_publicacao=${publicacaoId}`
-                    })
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `id_publicacao=${publicacaoId}`
+                })
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
@@ -898,7 +781,7 @@ if (!empty($_SESSION)) {
         });
 
         // Envio de novo comentário
-        document.getElementById('commentForm').addEventListener('submit', function(e) {
+        document.getElementById('commentForm').addEventListener('submit', function (e) {
             e.preventDefault();
 
             const commentInput = document.getElementById('commentInput');
@@ -910,9 +793,9 @@ if (!empty($_SESSION)) {
                 formData.append('content', content);
 
                 fetch('../backend/add_comment.php', {
-                        method: 'POST',
-                        body: formData
-                    })
+                    method: 'POST',
+                    body: formData
+                })
                     .then(response => response.json())
                     .then(result => {
                         if (result.success) {
@@ -928,6 +811,7 @@ if (!empty($_SESSION)) {
             }
         });
     </script>
+
 </body>
 
 </html>

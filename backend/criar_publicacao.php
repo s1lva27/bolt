@@ -16,10 +16,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['publicar'])) {
 
     // Sanitizar e validar entrada de texto
     $conteudo = trim(htmlspecialchars($_POST['conteudo']));
-    
-    echo '<pre>';
-    var_dump($_FILES);
-    echo '</pre>';
 
     try {
         // Inserir no banco de dados
@@ -28,22 +24,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['publicar'])) {
             (id_utilizador, conteudo, data_criacao) 
             VALUES (?, ?, NOW())
         ");
-        
+
         $stmt->bind_param("is", $_SESSION['id'], $conteudo);
 
         if ($stmt->execute()) {
             $publicacaoId = $stmt->insert_id;
 
-            for ($i=0; $i < $MAX_MEDIA; $i++) { 
-                $media = $_FILES["media".$i];
+            for ($i = 0; $i < $MAX_MEDIA; $i++) {
+                $media = $_FILES["media" . $i];
 
-                if(empty($media['name']))
-                {
+                if (empty($media['name'])) {
                     continue;
+                }
+                // Dentro do loop de upload, adicione:
+                if ($media['size'] > 5 * 1024 * 1024) { // 5MB
+                    $_SESSION['erro'] = "O arquivo é muito grande. Tamanho máximo: 5MB";
+                    header('Location: ../frontend/index.php');
+                    exit();
                 }
 
                 $ext = strtolower(pathinfo(basename($media["name"]), PATHINFO_EXTENSION));
-                
+
                 if (!in_array($ext, $EXT_PERMITIDAS)) {
                     die("Erro: Apenas imagens JPG, JPEG, PNG ou GIF são permitidas.");
                 }
@@ -52,18 +53,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['publicar'])) {
                 $destino = "../frontend/images/publicacoes/" . $novo_nome;
 
                 if (move_uploaded_file($media['tmp_name'], $destino)) {
-
                     $sql_pub_medias = "INSERT INTO publicacao_medias
-                        (publicacao_id, url, ordem, content_warning) VALUES
-                        ($publicacaoId, '$novo_nome', $i, 'none')";
+    (publicacao_id, url, content_warning, ordem) VALUES
+    (?, ?, 'none', ?)";
 
-                    $result_pub_medias = mysqli_query($con, $sql_pub_medias);
-
-                    echo 'sql: '.$sql_pub_medias;
-                    // return;
+                    $stmt_media = $con->prepare($sql_pub_medias);
+                    $stmt_media->bind_param("isi", $publicacaoId, $novo_nome, $i);
+                    $stmt_media->execute();
                 }
             }
-            
+
             $_SESSION['sucesso'] = "Publicação criada com sucesso!";
             header('Location: ../frontend/index.php');
             exit();
@@ -76,7 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['publicar'])) {
         header('Location: ../frontend/index.php');
         exit();
     } finally {
-        if(isset($stmt)) $stmt->close();
+        if (isset($stmt))
+            $stmt->close();
     }
 } else {
     // Se alguém tentar acessar diretamente o arquivo
