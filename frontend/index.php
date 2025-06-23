@@ -417,32 +417,36 @@ if (!empty($_SESSION)) {
                                             $gridClass = 'double';
                                         elseif ($imageCount == 3)
                                             $gridClass = 'triple';
+                                        elseif ($imageCount == 4)
+                                            $gridClass = 'quad';
                                         else
                                             $gridClass = 'multiple';
                                         ?>
                                         <div class="images-grid <?php echo $gridClass; ?>">
                                             <?php foreach ($images as $i => $media): ?>
-                                                <div class="media-item"
-                                                    onclick="openMediaModal(<?php echo $publicacaoId; ?>, <?php echo $i; ?>)">
-                                                    <?php if ($media['tipo'] === 'video'): ?>
-                                                        <div class="video-container">
-                                                            <video muted preload="metadata" playsInline>
-                                                                <source
-                                                                    src="images/publicacoes/<?php echo htmlspecialchars($media['url']); ?>"
-                                                                    type="video/mp4">
-                                                                Seu navegador não suporta vídeos.
-                                                            </video>
-                                                        </div>
-                                                    <?php else: ?>
-                                                        <img src="images/publicacoes/<?php echo htmlspecialchars($media['url']); ?>"
-                                                            alt="Imagem da publicação" class="post-media">
-                                                    <?php endif; ?>
-                                                    <?php if ($i == 3 && $imageCount > 4): ?>
-                                                        <div class="more-images-overlay">
-                                                            +<?php echo $imageCount - 4; ?>
-                                                        </div>
-                                                    <?php endif; ?>
-                                                </div>
+                                                <?php if ($i < 4 || $imageCount <= 4): ?>
+                                                    <div class="media-item"
+                                                        onclick="openMediaModal(<?php echo $publicacaoId; ?>, <?php echo $i; ?>)">
+                                                        <?php if ($media['tipo'] === 'video'): ?>
+                                                            <div class="video-container">
+                                                                <video muted preload="metadata" playsInline>
+                                                                    <source
+                                                                        src="images/publicacoes/<?php echo htmlspecialchars($media['url']); ?>"
+                                                                        type="video/mp4">
+                                                                    Seu navegador não suporta vídeos.
+                                                                </video>
+                                                            </div>
+                                                        <?php else: ?>
+                                                            <img src="images/publicacoes/<?php echo htmlspecialchars($media['url']); ?>"
+                                                                alt="Imagem da publicação" class="post-media">
+                                                        <?php endif; ?>
+                                                        <?php if ($i == 3 && $imageCount > 4): ?>
+                                                            <div class="more-images-overlay">
+                                                                +<?php echo $imageCount - 4; ?>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                <?php endif; ?>
                                             <?php endforeach; ?>
                                         </div>
                                     </div>
