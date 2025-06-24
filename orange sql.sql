@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Tempo de geração: 15/06/2025 às 23:21
+-- Tempo de geração: 24/06/2025 às 16:54
 -- Versão do servidor: 10.4.32-MariaDB
 -- Versão do PHP: 8.2.12
 
@@ -40,47 +40,12 @@ CREATE TABLE `comentarios` (
 --
 
 INSERT INTO `comentarios` (`id`, `id_publicacao`, `utilizador_id`, `conteudo`, `data`) VALUES
-(1, 28, 78, 'o,a', '2025-06-03 20:21:37'),
-(2, 28, 78, 'ASJHKDFVAKJSHDFUJASD', '2025-06-03 20:21:47'),
-(3, 28, 78, 'ASDDDASDADS', '2025-06-03 20:21:49'),
-(4, 28, 78, 'ALALALLALALA', '2025-06-03 20:22:02'),
-(5, 25, 78, 'VEM VERAO', '2025-06-03 20:32:47'),
-(6, 28, 78, 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', '2025-06-03 20:35:15'),
-(7, 28, 78, 'AAAAAAAAAAAAAAAAAAAAAAAAAAA', '2025-06-03 20:35:17'),
-(8, 28, 78, 'AAAAAAAAAAAAAAAAAAAAAAAAAAA', '2025-06-03 20:35:18'),
-(9, 28, 78, 'AAA', '2025-06-03 20:35:19'),
-(10, 28, 78, 'A', '2025-06-03 20:35:19'),
-(11, 28, 78, 'A', '2025-06-03 20:35:19'),
-(12, 28, 78, 'A', '2025-06-03 20:35:19'),
-(13, 28, 78, 'A', '2025-06-03 20:35:20'),
-(14, 28, 78, 'A', '2025-06-03 20:35:20'),
-(15, 28, 78, 'A', '2025-06-03 20:35:20'),
-(16, 28, 78, 'ola, eu contrato te', '2025-06-03 20:37:10'),
-(17, 28, 78, 'as', '2025-06-03 20:53:56'),
-(18, 28, 78, 'asasas', '2025-06-03 20:53:59'),
-(19, 28, 78, 'asas', '2025-06-03 21:00:05'),
-(20, 28, 78, 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', '2025-06-03 22:14:51'),
-(21, 28, 78, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '2025-06-03 22:26:40'),
-(22, 28, 78, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '2025-06-03 22:27:00'),
-(23, 28, 78, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '2025-06-03 22:27:19'),
-(24, 28, 78, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '2025-06-03 22:27:38'),
-(25, 28, 78, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '2025-06-03 22:28:12'),
-(26, 28, 78, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '2025-06-03 22:29:24'),
-(27, 28, 78, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '2025-06-03 22:37:18'),
-(28, 28, 78, 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', '2025-06-03 22:45:52'),
-(29, 31, 78, 'A', '2025-06-03 22:47:52'),
-(30, 31, 78, 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', '2025-06-03 22:48:48'),
-(31, 31, 78, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '2025-06-03 22:49:52'),
-(32, 31, 78, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '2025-06-03 23:09:48'),
-(33, 31, 78, 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', '2025-06-03 23:12:43'),
-(34, 32, 78, 'as', '2025-06-10 17:53:20'),
-(35, 32, 78, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '2025-06-10 17:53:23'),
-(36, 34, 78, 'boa pap', '2025-06-11 15:41:46'),
-(37, 35, 78, 'o balao do joao', '2025-06-11 16:12:37'),
-(38, 45, 78, 'a', '2025-06-13 19:05:47'),
-(39, 47, 78, 'a', '2025-06-13 21:22:51'),
-(40, 8, 89, 'pog', '2025-06-13 22:24:37'),
-(41, 51, 78, 'eu tambem 🍊🍊🍊🍊🍊', '2025-06-13 22:25:27');
+(57, 176, 78, 'a', '2025-06-23 18:34:23'),
+(58, 173, 78, 'a', '2025-06-23 18:34:34'),
+(59, 177, 78, 'aa', '2025-06-23 20:05:31'),
+(60, 177, 78, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '2025-06-23 20:05:33'),
+(61, 175, 78, 'ola', '2025-06-23 20:05:47'),
+(62, 177, 78, 'a', '2025-06-24 12:19:22');
 
 -- --------------------------------------------------------
 
@@ -119,7 +84,8 @@ INSERT INTO `perfis` (`id_perfil`, `id_utilizador`, `biografia`, `foto_perfil`, 
 (12, 86, 'moro na granja do ulmeiro', 'perfil_683df190346dc.jpg', '2025-06-02', 'capa_683df19770367.jpg', '', '', '', 'Estudante', 'Portugal', 'Lisboa'),
 (13, 87, 'Yo soy di eslovacia', 'perfil_683f10b0c2fe2.jpg', '2025-06-03', 'capa_683f10bbc993d.jpg', '', '', '', 'Stripper', 'Polónia', 'Katowice'),
 (14, 88, '', 'default-profile.jpg', '2025-06-03', 'default-capa.png', '', '', '', '', '', ''),
-(15, 89, '', 'default-profile.jpg', '2025-06-10', 'default-capa.png', 'asas', 'asas', 'https://github.com/s1lva27/Orange/blob/master/frontend/css/style_index.css', '', 'Irlanda', 'Dublin');
+(15, 89, '', 'default-profile.jpg', '2025-06-10', 'default-capa.png', 'asas', 'asas', 'https://github.com/s1lva27/Orange/blob/master/frontend/css/style_index.css', '', 'Irlanda', 'Dublin'),
+(16, 90, '', 'default-profile.jpg', '2025-06-19', 'default-capa.png', '', '', '', '', '', '');
 
 -- --------------------------------------------------------
 
@@ -139,45 +105,11 @@ CREATE TABLE `publicacao_likes` (
 --
 
 INSERT INTO `publicacao_likes` (`id`, `publicacao_id`, `utilizador_id`, `data`) VALUES
-(6, 26, 86, '2025-06-03 12:28:55'),
-(7, 25, 86, '2025-06-03 12:29:17'),
-(9, 24, 78, '2025-06-03 12:32:17'),
-(15, 26, 78, '2025-06-03 12:36:26'),
-(17, 22, 78, '2025-06-03 14:42:36'),
-(18, 21, 78, '2025-06-03 14:42:36'),
-(20, 19, 78, '2025-06-03 14:42:38'),
-(21, 18, 78, '2025-06-03 14:42:39'),
-(22, 17, 78, '2025-06-03 14:42:40'),
-(23, 16, 78, '2025-06-03 14:42:41'),
-(24, 15, 78, '2025-06-03 14:42:41'),
-(26, 25, 87, '2025-06-03 15:12:25'),
-(42, 28, 78, '2025-06-10 17:50:43'),
-(59, 25, 78, '2025-06-10 18:07:05'),
-(78, 32, 78, '2025-06-10 18:29:18'),
-(79, 31, 78, '2025-06-10 18:35:49'),
-(80, 30, 78, '2025-06-10 18:35:51'),
-(81, 20, 78, '2025-06-10 18:35:57'),
-(83, 31, 89, '2025-06-10 18:50:21'),
-(85, 32, 89, '2025-06-10 21:10:28'),
-(86, 25, 89, '2025-06-10 21:10:58'),
-(87, 30, 89, '2025-06-10 21:29:28'),
-(88, 33, 78, '2025-06-11 15:12:28'),
-(89, 34, 78, '2025-06-11 15:41:41'),
-(90, 35, 78, '2025-06-11 16:11:54'),
-(91, 43, 78, '2025-06-11 16:42:21'),
-(92, 42, 78, '2025-06-11 16:42:22'),
-(93, 41, 78, '2025-06-11 16:42:24'),
-(94, 40, 78, '2025-06-11 16:42:24'),
-(95, 37, 78, '2025-06-12 21:33:07'),
-(97, 23, 78, '2025-06-12 21:54:02'),
-(99, 44, 78, '2025-06-12 22:43:05'),
-(100, 45, 78, '2025-06-13 19:05:44'),
-(102, 47, 78, '2025-06-13 21:44:49'),
-(103, 46, 78, '2025-06-13 21:44:51'),
-(104, 48, 78, '2025-06-13 22:21:50'),
-(105, 8, 89, '2025-06-13 22:24:35'),
-(106, 33, 89, '2025-06-13 22:24:46'),
-(107, 51, 78, '2025-06-13 22:25:09');
+(165, 173, 78, '2025-06-23 17:53:24'),
+(166, 174, 78, '2025-06-23 17:53:34'),
+(167, 175, 78, '2025-06-23 17:53:35'),
+(168, 176, 78, '2025-06-23 17:54:06'),
+(170, 177, 78, '2025-06-23 18:34:17');
 
 -- --------------------------------------------------------
 
@@ -188,18 +120,23 @@ INSERT INTO `publicacao_likes` (`id`, `publicacao_id`, `utilizador_id`, `data`) 
 CREATE TABLE `publicacao_medias` (
   `id` int(11) NOT NULL,
   `publicacao_id` int(11) DEFAULT NULL,
-  `tipo` enum('imagem','video','outro') NOT NULL,
   `url` varchar(255) NOT NULL,
-  `crop_data` text DEFAULT NULL,
-  `content_warning` enum('none','nudity','violence') NOT NULL DEFAULT 'none'
+  `content_warning` enum('none','nudity','violence') NOT NULL DEFAULT 'none',
+  `ordem` int(11) NOT NULL DEFAULT 0,
+  `tipo` enum('imagem','video') NOT NULL DEFAULT 'imagem'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 
 --
 -- Despejando dados para a tabela `publicacao_medias`
 --
 
-INSERT INTO `publicacao_medias` (`id`, `publicacao_id`, `tipo`, `url`, `crop_data`, `content_warning`) VALUES
-(1, 52, 'imagem', 'img_684cb477567a2.jpg', '', 'none');
+INSERT INTO `publicacao_medias` (`id`, `publicacao_id`, `url`, `content_warning`, `ordem`, `tipo`) VALUES
+(128, 176, 'pub_1750701221_0_685994a54a7f8.mp4', 'none', 0, 'video'),
+(129, 177, 'pub_1750703062_0_68599bd6e7996.png', 'none', 0, 'imagem'),
+(130, 177, 'pub_1750703062_1_68599bd6e802b.png', 'none', 1, 'imagem'),
+(131, 177, 'pub_1750703062_2_68599bd6e8654.jpeg', 'none', 2, 'imagem'),
+(132, 177, 'pub_1750703062_3_68599bd6e8a4d.png', 'none', 3, 'imagem'),
+(133, 177, 'pub_1750703062_4_68599bd6e8e60.jpeg', 'none', 4, 'imagem');
 
 -- --------------------------------------------------------
 
@@ -219,25 +156,8 @@ CREATE TABLE `publicacao_salvas` (
 --
 
 INSERT INTO `publicacao_salvas` (`id`, `utilizador_id`, `publicacao_id`, `data_salvamento`) VALUES
-(65, 78, 41, '2025-06-12 21:41:59'),
-(66, 78, 40, '2025-06-12 21:42:01'),
-(67, 78, 39, '2025-06-12 21:42:02'),
-(68, 78, 38, '2025-06-12 21:42:03'),
-(69, 78, 37, '2025-06-12 21:42:04'),
-(70, 78, 36, '2025-06-12 21:42:06'),
-(71, 78, 35, '2025-06-12 21:42:08'),
-(72, 78, 30, '2025-06-12 21:42:14'),
-(73, 78, 29, '2025-06-12 21:42:18'),
-(79, 78, 26, '2025-06-12 21:45:55'),
-(80, 78, 25, '2025-06-12 21:45:58'),
-(81, 78, 24, '2025-06-12 21:45:59'),
-(82, 78, 23, '2025-06-12 21:46:02'),
-(83, 78, 21, '2025-06-12 21:46:04'),
-(86, 78, 42, '2025-06-12 22:43:18'),
-(88, 78, 43, '2025-06-12 22:45:36'),
-(89, 78, 44, '2025-06-12 22:49:02'),
-(90, 78, 45, '2025-06-13 19:05:44'),
-(94, 78, 46, '2025-06-13 21:44:52');
+(102, 78, 176, '2025-06-23 17:54:15'),
+(105, 78, 175, '2025-06-23 20:05:42');
 
 -- --------------------------------------------------------
 
@@ -260,57 +180,11 @@ CREATE TABLE `publicacoes` (
 --
 
 INSERT INTO `publicacoes` (`id_publicacao`, `id_utilizador`, `conteudo`, `categoria`, `data_criacao`, `deletado_em`, `likes`) VALUES
-(1, 78, 'ass', NULL, '2025-03-09 15:27:38', '0000-00-00 00:00:00', 0),
-(2, 78, 'zzddzd', NULL, '2025-03-09 15:27:44', '0000-00-00 00:00:00', 0),
-(3, 84, 'ola', NULL, '2025-03-09 15:34:02', '0000-00-00 00:00:00', 0),
-(4, 78, 'asasasasas', NULL, '2025-03-09 16:07:35', '0000-00-00 00:00:00', 0),
-(5, 78, 'sou bonmito', NULL, '2025-03-09 16:20:30', '0000-00-00 00:00:00', 0),
-(6, 78, 'asajsdbajd', NULL, '2025-03-09 16:37:29', '0000-00-00 00:00:00', 0),
-(8, 78, 'olÃ¡ colegas, eu sou o zddeis, estou na conta do caro colega amigo colaborador companheiro afonso matos silva', NULL, '2025-03-10 09:57:26', '0000-00-00 00:00:00', 1),
-(9, 81, 'olaola', NULL, '2025-03-10 23:47:05', '0000-00-00 00:00:00', 0),
-(10, 81, '1213234', NULL, '2025-03-10 23:47:33', '0000-00-00 00:00:00', 0),
-(11, 81, 'ola procuro emprego (job)', NULL, '2025-03-11 00:17:56', '0000-00-00 00:00:00', 0),
-(12, 78, 'teste1234', NULL, '2025-03-11 00:19:10', '0000-00-00 00:00:00', 0),
-(13, 78, 'preciso de tirar boa nota hoje (prometo que me vou esforÃ§ar mais)', NULL, '2025-03-11 09:06:30', '0000-00-00 00:00:00', 0),
-(14, 78, 'ola 123', NULL, '2025-03-11 09:25:14', '0000-00-00 00:00:00', 0),
-(15, 78, 'as', NULL, '2025-05-05 15:21:55', '0000-00-00 00:00:00', 1),
-(16, 78, 'as', NULL, '2025-05-23 15:38:04', '0000-00-00 00:00:00', 1),
-(17, 78, 'AS', NULL, '2025-05-23 21:51:48', '0000-00-00 00:00:00', 1),
-(18, 78, 'ola 1 2 3', NULL, '2025-05-23 21:51:54', '0000-00-00 00:00:00', 1),
-(19, 78, 'fasajksggahksg', NULL, '2025-05-23 21:52:43', '0000-00-00 00:00:00', 1),
-(20, 78, '123', NULL, '2025-05-23 21:55:59', '0000-00-00 00:00:00', 1),
-(21, 78, 'o tomas é lindo', NULL, '2025-05-25 14:16:58', '0000-00-00 00:00:00', 1),
-(22, 81, 'O HUGO É UM BURRO', NULL, '2025-05-27 12:04:05', '0000-00-00 00:00:00', 1),
-(23, 78, 'sexo', NULL, '2025-05-27 15:28:06', '0000-00-00 00:00:00', 1),
-(24, 86, 'estou farta de estudar', NULL, '2025-06-02 18:47:13', '0000-00-00 00:00:00', 1),
-(25, 86, '#vemverao', NULL, '2025-06-02 18:47:27', '0000-00-00 00:00:00', 4),
-(26, 86, 'asa', NULL, '2025-06-03 12:13:18', '0000-00-00 00:00:00', 2),
-(27, 78, 'aaa', NULL, '2025-06-03 14:42:47', '0000-00-00 00:00:00', 0),
-(28, 87, 'procuro trabalho como stripper', NULL, '2025-06-03 15:12:17', '0000-00-00 00:00:00', 1),
-(29, 78, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NULL, '2025-06-03 22:20:22', '0000-00-00 00:00:00', 0),
-(30, 78, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NULL, '2025-06-03 22:37:06', '0000-00-00 00:00:00', 2),
-(31, 78, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', NULL, '2025-06-03 22:45:42', '0000-00-00 00:00:00', 2),
-(32, 78, 'a', NULL, '2025-06-06 22:25:11', '0000-00-00 00:00:00', 2),
-(33, 89, 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', NULL, '2025-06-10 21:36:03', '0000-00-00 00:00:00', 2),
-(34, 78, 'http://localhost/orange/frontend/index.php#', NULL, '2025-06-11 15:24:31', '0000-00-00 00:00:00', 1),
-(35, 78, 'qasssas', NULL, '2025-06-11 16:11:50', '0000-00-00 00:00:00', 1),
-(36, 78, 'https://www.youtube.com/', NULL, '2025-06-11 16:20:19', '0000-00-00 00:00:00', 0),
-(37, 78, 'https://www.youtube.com/', NULL, '2025-06-11 16:24:21', '0000-00-00 00:00:00', 1),
-(38, 78, 'http://localhost/orange/frontend/index.php', NULL, '2025-06-11 16:25:15', '0000-00-00 00:00:00', 0),
-(39, 78, 'https://www.youtube.com/', NULL, '2025-06-11 16:32:05', '0000-00-00 00:00:00', 0),
-(40, 78, 'https://www.youtube.com/', NULL, '2025-06-11 16:32:37', '0000-00-00 00:00:00', 1),
-(41, 78, 'vejam o meu canal: www.afonso.pt', NULL, '2025-06-11 16:36:19', '0000-00-00 00:00:00', 1),
-(42, 78, 'vejam o meu canal: https://www.afonso.pt por vaor', NULL, '2025-06-11 16:37:11', '0000-00-00 00:00:00', 1),
-(43, 78, '#pacman', NULL, '2025-06-11 16:41:45', '0000-00-00 00:00:00', 1),
-(44, 78, 'assssas', NULL, '2025-06-11 17:04:52', '0000-00-00 00:00:00', 1),
-(45, 78, 'a', NULL, '2025-06-13 18:41:46', '0000-00-00 00:00:00', 1),
-(46, 78, 'a', NULL, '2025-06-13 19:05:49', '0000-00-00 00:00:00', 1),
-(47, 78, 'joao', NULL, '2025-06-13 20:53:31', '0000-00-00 00:00:00', 1),
-(48, 78, 'POUCAS HORAS PARA O LANÇAMENTO DA ORANGE', NULL, '2025-06-13 22:20:42', '0000-00-00 00:00:00', 1),
-(49, 78, '🤩🤩🤩🤩', NULL, '2025-06-13 22:20:56', '0000-00-00 00:00:00', 0),
-(50, 78, '💩', NULL, '2025-06-13 22:21:05', '0000-00-00 00:00:00', 0),
-(51, 89, 'estou bastante ansioso para o lancamento oficial da orange', NULL, '2025-06-13 22:25:02', '0000-00-00 00:00:00', 1),
-(52, 78, 'a', NULL, '2025-06-13 23:29:59', '0000-00-00 00:00:00', 0);
+(173, 78, 'ORANGE TA TAO FODIDA', NULL, '2025-06-23 17:53:23', '0000-00-00 00:00:00', 1),
+(174, 78, 'TAO GOSTOSA', NULL, '2025-06-23 17:53:28', '0000-00-00 00:00:00', 1),
+(175, 78, 'A', NULL, '2025-06-23 17:53:32', '0000-00-00 00:00:00', 1),
+(176, 78, '', NULL, '2025-06-23 17:53:41', '0000-00-00 00:00:00', 1),
+(177, 78, '', NULL, '2025-06-23 18:24:22', '0000-00-00 00:00:00', 1);
 
 -- --------------------------------------------------------
 
@@ -392,7 +266,8 @@ INSERT INTO `utilizadores` (`id`, `nome_completo`, `email`, `palavra_passe`, `da
 (86, 'Matilde Alves', 'matildealves@gmail.com', '*23AE809DDACAF96AF0FD78ED04B6A265E05AA257', '2007-12-05', 'matxiudi', 0, '2025-06-02 18:45:26.635706'),
 (87, 'Duarte Lopes', 'duarte.v.lopeo@gmail.com', '*23AE809DDACAF96AF0FD78ED04B6A265E05AA257', '2007-11-16', 'dudzfn', 0, '2025-06-03 15:10:42.570645'),
 (88, 'Duarte Lopes', 'aas@gmail.com', '*23AE809DDACAF96AF0FD78ED04B6A265E05AA257', '2000-11-11', 'dudzfn_1', 0, '2025-06-03 15:15:08.310135'),
-(89, 'Gouveia', 'gouveuaaa@gmail.com', '*23AE809DDACAF96AF0FD78ED04B6A265E05AA257', '1999-11-11', 'gougou', 0, '2025-06-10 18:45:10.639913');
+(89, 'Gouveia', 'gouveuaaa@gmail.com', '*23AE809DDACAF96AF0FD78ED04B6A265E05AA257', '1999-11-11', 'gougou', 0, '2025-06-10 18:45:10.639913'),
+(90, 'Zdoca', 'david.fcg07@gmail.com', '*23AE809DDACAF96AF0FD78ED04B6A265E05AA257', '2000-11-11', 'zddeis', 0, '2025-06-19 16:43:17.104718');
 
 --
 -- Índices para tabelas despejadas
@@ -475,37 +350,37 @@ ALTER TABLE `utilizadores`
 -- AUTO_INCREMENT de tabela `comentarios`
 --
 ALTER TABLE `comentarios`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=42;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=63;
 
 --
 -- AUTO_INCREMENT de tabela `perfis`
 --
 ALTER TABLE `perfis`
-  MODIFY `id_perfil` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id_perfil` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT de tabela `publicacao_likes`
 --
 ALTER TABLE `publicacao_likes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=108;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=171;
 
 --
 -- AUTO_INCREMENT de tabela `publicacao_medias`
 --
 ALTER TABLE `publicacao_medias`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=134;
 
 --
 -- AUTO_INCREMENT de tabela `publicacao_salvas`
 --
 ALTER TABLE `publicacao_salvas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=95;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=106;
 
 --
 -- AUTO_INCREMENT de tabela `publicacoes`
 --
 ALTER TABLE `publicacoes`
-  MODIFY `id_publicacao` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
+  MODIFY `id_publicacao` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=178;
 
 --
 -- AUTO_INCREMENT de tabela `tipos_utilizador`
@@ -517,7 +392,7 @@ ALTER TABLE `tipos_utilizador`
 -- AUTO_INCREMENT de tabela `utilizadores`
 --
 ALTER TABLE `utilizadores`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=90;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=91;
 
 --
 -- Restrições para tabelas despejadas
