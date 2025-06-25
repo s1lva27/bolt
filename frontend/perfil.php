@@ -78,6 +78,7 @@ $fotoPerfil = !empty($perfilData['foto_perfil']) ? $perfilData['foto_perfil'] : 
 
 $sqlPublicacoes = "SELECT * FROM publicacoes 
                   WHERE id_utilizador = $userId 
+                  AND deletado_em = '0000-00-00 00:00:00'
                   ORDER BY data_criacao DESC";
 $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
 ?>
@@ -99,9 +100,131 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
     <link rel="icon" type="image/x-icon" href="images/favicon/favicon_orange.png">
 
     <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Confirmation Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .confirmation-modal {
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            padding: 24px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        .confirmation-modal h3 {
+            margin-top: 0;
+            color: var(--text-light);
+            font-size: 1.2rem;
+        }
+
+        .confirmation-modal p {
+            margin: 15px 0 25px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .confirmation-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .confirmation-buttons button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .confirm-btn {
+            background-color: var(--color-primary);
+            color: white;
+            border: none;
+        }
+
+        .confirm-btn:hover {
+            background-color: var(--color-primary-dark);
+        }
+
+        .cancel-btn {
+            background-color: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-light);
+        }
+
+        .cancel-btn:hover {
+            background-color: var(--bg-input);
+        }
+
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .post-actions .delete-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            margin-left: auto;
+            padding: 5px;
+            transition: color 0.2s ease;
+        }
+
+        .post-actions .delete-btn:hover {
+            color: #ff3333;
+        }
+
+        .comment-item .delete-comment-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            margin-left: 10px;
+            padding: 2px;
+            font-size: 0.8rem;
+            transition: color 0.2s ease;
+        }
+
+        .comment-item .delete-comment-btn:hover {
+            color: #ff3333;
+        }
+    </style>
 </head>
 
 <body>
+    <div id="confirmationModal" class="modal-overlay" style="display: none; z-index: 1001;">
+        <div class="confirmation-modal">
+            <h3>Confirmar ação</h3>
+            <p id="confirmationMessage">Tem a certeza que deseja apagar esta publicação?</p>
+            <div class="confirmation-buttons">
+                <button id="confirmCancel" class="cancel-btn">Cancelar</button>
+                <button id="confirmAction" class="confirm-btn">Confirmar</button>
+            </div>
+        </div>
+    </div>
     <?php require("parciais/header.php"); ?>
 
     <!-- Perfil Header -->
@@ -403,6 +526,12 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
                                     data-publicacao-id="<?php echo $publicacao['id_publicacao']; ?>">
                                     <i class="fas fa-bookmark"></i>
                                 </button>
+                                <?php if ($_SESSION['id'] == $userId || $_SESSION['id_tipos_utilizador'] == 2): ?>
+                                    <button class="delete-btn"
+                                        onclick="deletePost(<?php echo $publicacao['id_publicacao']; ?>, this)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                <?php endif; ?>
                             </div>
                         </article>
                     <?php endwhile; ?>
@@ -413,7 +542,8 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
         </div>
 
         <!-- Modal de Comentários -->
-        <div id="commentsModal" class="modal-overlay">
+        <!-- Modal de Comentários  -->
+        <div id="commentsModal" class="modal-overlay" style="display: none; z-index: 1000;">
             <div class="comment-modal">
                 <div class="modal-post" id="modalPostContent"></div>
                 <div class="modal-comments">
@@ -463,6 +593,178 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
     <script src="js/video-player.js"></script>
 
     <script>
+        // Variáveis globais para controle da confirmação
+        let pendingDelete = {
+            postId: null,
+            element: null,
+            type: null // 'post' ou 'comment'
+        };
+
+        // Função para apagar publicação com modal de confirmação
+        function deletePost(postId, element) {
+            pendingDelete = {
+                postId,
+                element,
+                type: 'post'
+            };
+
+            document.getElementById('confirmationMessage').textContent = 'Tem certeza que deseja apagar esta publicação?';
+            showConfirmation(function (confirmed) {
+                if (confirmed) {
+                    fetch('../backend/delete_post.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `id_publicacao=${postId}`
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Remove o elemento da publicação do DOM com animação
+                                element.closest('.post').style.opacity = '0';
+                                element.closest('.post').style.transform = 'translateX(-100px)';
+                                setTimeout(() => {
+                                    element.closest('.post').remove();
+
+                                    // Verifica se não há mais posts
+                                    const postsContainer = document.querySelector('.posts');
+                                    if (postsContainer.children.length === 0) {
+                                        postsContainer.innerHTML = '<p class="no-activity">Este utilizador ainda não fez nenhuma publicação.</p>';
+                                    }
+                                }, 300);
+
+                                showToast('Publicação apagada com sucesso');
+                            } else {
+                                showToast('Erro ao apagar publicação');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            showToast('Erro ao apagar publicação');
+                        });
+                }
+            });
+        }
+
+        // Função para apagar comentário com modal de confirmação
+        function deleteComment(commentId, element) {
+            pendingDelete = {
+                commentId,
+                element,
+                type: 'comment'
+            };
+
+            document.getElementById('confirmationMessage').textContent = 'Tem a certeza que deseja apagar este comentário?';
+            showConfirmation(function (confirmed) {
+                if (confirmed) {
+                    fetch('../backend/delete_comment.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `id_comentario=${commentId}`
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Remove o elemento do comentário do DOM
+                                element.closest('.comment-item').remove();
+                                showToast('Comentário apagado com sucesso');
+
+                                // Atualiza a contagem de comentários
+                                const commentCount = document.querySelector(`.comment-btn[onclick*="${currentPostId}"] .comment-count`);
+                                if (commentCount) {
+                                    commentCount.textContent = parseInt(commentCount.textContent) - 1;
+                                }
+                            } else {
+                                showToast('Erro ao apagar comentário');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            showToast('Erro ao apagar comentário');
+                        });
+                }
+            });
+        }
+
+        // Função para mostrar o modal de confirmação (reutilizável)
+        function showConfirmation(callback) {
+            const modal = document.getElementById('confirmationModal');
+            const confirmBtn = document.getElementById('confirmAction');
+            const cancelBtn = document.getElementById('confirmCancel');
+
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+
+            // Limpa listeners anteriores
+            confirmBtn.onclick = null;
+            cancelBtn.onclick = null;
+
+            confirmBtn.onclick = function () {
+                modal.style.display = 'none';
+                document.body.style.overflow = 'auto';
+                callback(true);
+            };
+
+            cancelBtn.onclick = function () {
+                modal.style.display = 'none';
+                document.body.style.overflow = 'auto';
+                callback(false);
+            };
+        }
+
+        // Corrigir o modal de comentários que abre automaticamente
+        // Remova qualquer chamada automática para openCommentsModal()
+        document.addEventListener('DOMContentLoaded', function () {
+            // Inicializações aqui
+            initializeVideoThumbnails();
+            lucide.createIcons();
+
+            // Garante que o modal de comentários está fechado
+            document.getElementById('commentsModal').style.display = 'none';
+        });
+
+        // Modifique a função loadComments para incluir o botão de apagar
+        function loadComments(postId) {
+            fetch(`../backend/get_comments.php?post_id=${postId}`)
+                .then(response => response.json())
+                .then(comments => {
+                    const commentsList = document.getElementById('commentsList');
+                    commentsList.innerHTML = '';
+
+                    comments.forEach(comment => {
+                        const dataComentario = new Date(comment.data);
+                        const dataComentarioFormatada = `${dataComentario.getDate().toString().padStart(2, '0')}-${(dataComentario.getMonth() + 1).toString().padStart(2, '0')}-${dataComentario.getFullYear()} ${dataComentario.getHours().toString().padStart(2, '0')}:${dataComentario.getMinutes().toString().padStart(2, '0')}`;
+
+                        const commentItem = document.createElement('div');
+                        commentItem.className = 'comment-item';
+                        commentItem.innerHTML = `
+                    <a href="perfil.php?id=${comment.utilizador_id}">
+                        <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
+                    </a>
+                    <div class="comment-content">
+                        <div class="comment-header">
+                            <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
+                                <span class="comment-username">${comment.nick}</span>
+                            </a>
+                            <span class="comment-time">${dataComentarioFormatada}</span>
+                            ${(<?php echo $_SESSION['id']; ?> == comment.utilizador_id || <?php echo $_SESSION['id_tipos_utilizador']; ?> == 2) ?
+                                `<button class="delete-comment-btn" onclick="deleteComment(${comment.id}, this)">
+                                    <i class="fas fa-trash"></i>
+                                </button>` : ''}
+                        </div>
+                        <p class="comment-text">${comment.conteudo}</p>
+                    </div>
+                `;
+                        commentsList.appendChild(commentItem);
+                    });
+                });
+        }
+
+
+
         // Initialize video players after page load
         document.addEventListener('DOMContentLoaded', function () {
             initializeVideoThumbnails();
@@ -715,19 +1017,23 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
                         const commentItem = document.createElement('div');
                         commentItem.className = 'comment-item';
                         commentItem.innerHTML = `
-                            <a href="perfil.php?id=${comment.utilizador_id}">
-                                <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
+                    <a href="perfil.php?id=${comment.utilizador_id}">
+                        <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
+                    </a>
+                    <div class="comment-content">
+                        <div class="comment-header">
+                            <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
+                                <span class="comment-username">${comment.nick}</span>
                             </a>
-                            <div class="comment-content">
-                                <div class="comment-header">
-                                    <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
-                                        <span class="comment-username">${comment.nick}</span>
-                                    </a>
-                                    <span class="comment-time">${dataComentarioFormatada}</span>
-                                </div>
-                                <p class="comment-text">${comment.conteudo}</p>
-                            </div>
-                        `;
+                            <span class="comment-time">${dataComentarioFormatada}</span>
+                            ${(<?php echo $_SESSION['id']; ?> == comment.utilizador_id || <?php echo $_SESSION['id_tipos_utilizador']; ?> == 2) ?
+                                `<button class="delete-comment-btn" onclick="deleteComment(${comment.id}, this)">
+                                    <i class="fas fa-trash"></i>
+                                </button>` : ''}
+                        </div>
+                        <p class="comment-text">${comment.conteudo}</p>
+                    </div>
+                `;
                         commentsList.appendChild(commentItem);
                     });
                 });

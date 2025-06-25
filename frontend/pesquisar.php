@@ -2,6 +2,10 @@
 include_once("../backend/ligabd.php");
 session_start();
 
+// Adicione estas duas linhas
+$currentUserId = isset($_SESSION['id']) ? $_SESSION['id'] : 0;
+$currentUserType = isset($_SESSION['id_tipos_utilizador']) ? $_SESSION['id_tipos_utilizador'] : 0;
+
 // Função para transformar URLs em links clicáveis (copiada do index.php)
 function makeLinksClickable($text)
 {
@@ -28,6 +32,20 @@ function isPostSaved($con, $userId, $postId)
     return mysqli_num_rows($result) > 0;
 }
 
+// Função para obter mídias da publicação (atualizada para incluir vídeos)
+function getPostMedias($con, $postId)
+{
+    $medias = array();
+    $sql = "SELECT url, tipo FROM publicacao_medias WHERE publicacao_id = $postId ORDER BY ordem ASC";
+    $result = mysqli_query($con, $sql);
+
+    while ($row = mysqli_fetch_assoc($result)) {
+        $medias[] = $row;
+    }
+
+    return $medias;
+}
+
 $termo = isset($_GET['pesquisa']) ? trim($_GET['pesquisa']) : '';
 $termo_sql = mysqli_real_escape_string($con, $termo);
 $userId = isset($_SESSION['id']) ? $_SESSION['id'] : 0;
@@ -51,12 +69,193 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
 </head>
 
 <style>
-    /* Estilos adicionais para o botão de seguir */
+    /* Estilos para o grid de mídias */
+    .post-images {
+        margin: 15px 0;
+    }
+
+    .images-grid {
+        display: grid;
+        gap: 5px;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .images-grid.single {
+        grid-template-columns: 1fr;
+    }
+
+    .images-grid.double {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .images-grid.triple {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+    }
+
+    .images-grid.triple .media-item:first-child {
+        grid-row: span 2;
+    }
+
+    .images-grid.quad {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+    }
+
+    .images-grid.multiple {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+    }
+
+    .media-item {
+        position: relative;
+        cursor: pointer;
+        overflow: hidden;
+    }
+
+    .media-item img,
+    .media-item video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s ease;
+    }
+
+    .media-item:hover img,
+    .media-item:hover video {
+        transform: scale(1.05);
+    }
+
+    .more-images-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2rem;
+        font-weight: bold;
+    }
+
+    .video-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+
+    .video-container video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    /* Modal de mídia expandida */
+    .image-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.9);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .image-modal-content {
+        position: relative;
+        width: 90%;
+        max-width: 800px;
+        max-height: 90vh;
+    }
+
+    .close-image-modal {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        color: white;
+        font-size: 30px;
+        cursor: pointer;
+        background: none;
+        border: none;
+        z-index: 10;
+    }
+
+    .modal-image-container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-media {
+        max-width: 100%;
+        max-height: 80vh;
+        object-fit: contain;
+    }
+
+    .image-modal-nav {
+        position: fixed;
+        bottom: 20px;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .modal-nav-btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+    .modal-nav-btn:hover {
+        background: rgba(255, 255, 255, 0.4);
+    }
+
+    .modal-nav-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .image-counter {
+        color: white;
+        font-size: 1rem;
+        min-width: 60px;
+        text-align: center;
+    }
+
+    /* Estilos para perfis */
     .profile-card {
         display: flex;
         align-items: center;
         gap: 15px;
         padding: 15px;
+        background: var(--bg-card);
+        border-radius: 12px;
+        margin-bottom: 10px;
+        transition: transform 0.2s ease;
+    }
+
+    .profile-card:hover {
+        transform: translateY(-2px);
     }
 
     .profile-img {
@@ -75,6 +274,7 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
     .profile-info h4 {
         margin: 0;
         font-size: 1.1rem;
+        color: var(--text-light);
     }
 
     .profile-info p {
@@ -89,16 +289,6 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
     }
 
     .follow-btn {
-        margin-left: auto;
-    }
-
-    /* Adicione no final da tag <style> */
-    .profile-info small {
-        display: block;
-        margin-top: 5px;
-    }
-
-    .follow-btn {
         background: var(--color-primary);
         color: white;
         border: none;
@@ -106,7 +296,6 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
         padding: 8px 16px;
         cursor: pointer;
         transition: all 0.2s ease;
-        margin-left: 10px;
         font-size: 0.9rem;
     }
 
@@ -115,14 +304,199 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
         color: var(--color-primary);
         border: 1px solid var(--color-primary);
     }
+
+    /* Estilos para o modal de confirmação */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1001;
+    }
+
+    .confirmation-modal {
+        background-color: var(--bg-card);
+        border-radius: 12px;
+        padding: 24px;
+        width: 90%;
+        max-width: 400px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .confirmation-modal h3 {
+        margin-top: 0;
+        color: var(--text-light);
+        font-size: 1.2rem;
+    }
+
+    .confirmation-modal p {
+        margin: 15px 0 25px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    .confirmation-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+
+    .confirmation-buttons button {
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .confirm-btn {
+        background-color: var(--color-primary);
+        color: white;
+        border: none;
+    }
+
+    .confirm-btn:hover {
+        background-color: var(--color-primary-dark);
+    }
+
+    .cancel-btn {
+        background-color: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-light);
+    }
+
+    .cancel-btn:hover {
+        background-color: var(--bg-input);
+    }
+
+    .post-actions {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border-light);
+        margin-top: 10px;
+    }
+
+    /* Estilos para botões de apagar */
+    .post-actions .delete-btn {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        margin-left: auto;
+        padding: 5px;
+        transition: color 0.2s ease;
+    }
+
+    .post-actions .delete-btn:hover {
+        color: #ff3333;
+    }
+
+    .comment-item .delete-comment-btn {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        margin-left: 10px;
+        padding: 2px;
+        font-size: 0.8rem;
+        transition: color 0.2s ease;
+    }
+
+    .comment-item .delete-comment-btn:hover {
+        color: #ff3333;
+    }
+
+    /* Toast Notification */
+    .toast {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--bg-card);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        display: none;
+        align-items: center;
+        gap: 12px;
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .toast.show {
+        opacity: 1;
+    }
+
+    .toast-icon {
+        font-size: 1.2rem;
+    }
+
+    .toast-content p {
+        margin: 0;
+    }
+
+    .btn-load-more {
+        display: block;
+        width: 100%;
+        padding: 10px;
+        background: var(--color-primary);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        margin-top: 10px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+    .btn-load-more:hover {
+        background: var(--color-primary-dark);
+    }
 </style>
 
 
 <body>
+
+    <!-- Modal de confirmação -->
+    <div id="confirmationModal" class="modal-overlay" style="display: none;">
+        <div class="confirmation-modal">
+            <h3>Confirmar ação</h3>
+            <p id="confirmationMessage">Tem a certeza que deseja apagar esta publicação?</p>
+            <div class="confirmation-buttons">
+                <button id="confirmCancel" class="cancel-btn">Cancelar</button>
+                <button id="confirmAction" class="confirm-btn">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de mídia expandida -->
+    <div id="imageModal" class="image-modal">
+        <div class="image-modal-content">
+            <button class="close-image-modal">&times;</button>
+            <div id="modalImage" class="modal-image-container"></div>
+        </div>
+        <div class="image-modal-nav">
+            <button id="prevImageBtn" class="modal-nav-btn">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <span id="imageCounter" class="image-counter">1 / 1</span>
+            <button id="nextImageBtn" class="modal-nav-btn">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
     <?php require "parciais/header.php" ?>
 
     <!-- Comments Modal -->
-    <div id="commentsModal" class="modal-overlay">
+    <div id="commentsModal" class="modal-overlay" style="display: none; z-index: 1000;">
         <div class="comment-modal">
             <div class="modal-post" id="modalPostContent">
                 <!-- Conteúdo será preenchido via JS -->
@@ -133,8 +507,9 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
                 </div>
                 <form class="comment-form" id="commentForm">
                     <input type="hidden" id="currentPostId" value="">
-                    <input type="text" class="comment-input" id="commentInput" placeholder="Add a comment..." required>
-                    <button type="submit" class="comment-submit">Post</button>
+                    <input type="text" class="comment-input" id="commentInput" placeholder="Adicione um comentário..."
+                        required>
+                    <button type="submit" class="comment-submit">Publicar</button>
                 </form>
             </div>
             <button class="close-button">
@@ -143,7 +518,7 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
         </div>
     </div>
 
-    <!-- Toast Notification (copiado do index.php) -->
+    <!-- Toast Notification -->
     <div id="toast" class="toast">
         <div class="toast-icon">
             <i class="fas fa-bookmark"></i>
@@ -176,24 +551,25 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
                 <div class="profile-results" id="profileResults">
                     <?php
                     $sqlPerfis = "SELECT u.id, u.nome_completo, u.nick, p.foto_perfil,
-                (SELECT COUNT(*) FROM seguidores WHERE id_seguido = u.id) AS seguidores,
-                (SELECT COUNT(*) FROM seguidores WHERE id_seguidor = u.id) AS a_seguir,
-                " . ($userId ?
+                    (SELECT COUNT(*) FROM seguidores WHERE id_seguido = u.id) AS seguidores,
+                    (SELECT COUNT(*) FROM seguidores WHERE id_seguidor = u.id) AS a_seguir,
+                    " . ($userId ?
                         "(SELECT COUNT(*) FROM seguidores 
-                    WHERE id_seguidor = $userId AND id_seguido = u.id) AS is_following"
+                        WHERE id_seguidor = $userId AND id_seguido = u.id) AS is_following"
                         : "0 AS is_following") . "
-              FROM utilizadores u
-              JOIN perfis p ON u.id = p.id_utilizador
-              WHERE (u.nome_completo LIKE '%$termo_sql%' 
-                 OR u.nick LIKE '%$termo_sql%' 
-                 OR p.biografia LIKE '%$termo_sql%')
-                 $excludeSelf
-              LIMIT 3";
+                    FROM utilizadores u
+                    JOIN perfis p ON u.id = p.id_utilizador
+                    WHERE (u.nome_completo LIKE '%$termo_sql%' 
+                        OR u.nick LIKE '%$termo_sql%' 
+                        OR p.biografia LIKE '%$termo_sql%')
+                        $excludeSelf
+                    LIMIT 3";
                     $resPerfis = mysqli_query($con, $sqlPerfis);
 
                     if (mysqli_num_rows($resPerfis) > 0) {
                         while ($perfil = mysqli_fetch_assoc($resPerfis)) {
                             ?>
+
                             <div class="profile-card">
                                 <a href="perfil.php?id=<?php echo $perfil['id']; ?>" class="profile-link">
                                     <img src="images/perfil/<?php echo htmlspecialchars($perfil['foto_perfil']); ?>"
@@ -215,18 +591,15 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
                                 <?php } ?>
                             </div>
                             <?php
-
                         }
                     } else {
                         echo "<p class='no-posts'>Nenhum perfil encontrado.</p>";
                     }
 
-
-
                     // Verificar se há mais perfis
                     $sqlCount = "SELECT COUNT(*) as total FROM utilizadores u
-                                 JOIN perfis p ON u.id = p.id_utilizador
-                                 WHERE u.nome_completo LIKE '%$termo_sql%' 
+                                JOIN perfis p ON u.id = p.id_utilizador
+                                WHERE u.nome_completo LIKE '%$termo_sql%' 
                                     OR u.nick LIKE '%$termo_sql%' 
                                     OR p.biografia LIKE '%$termo_sql%'";
                     $resCount = mysqli_query($con, $sqlCount);
@@ -247,20 +620,22 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
                 <div class="posts">
                     <?php
                     $sqlPosts = "SELECT p.id_publicacao, p.conteudo, p.data_criacao, p.likes, 
-                                        u.id AS id_utilizador, u.nick, 
-                                        pr.foto_perfil, pr.ocupacao,
-                                        " . ($userId ?
+                        u.id AS id_utilizador, u.nick, 
+                        pr.foto_perfil, pr.ocupacao,
+                        " . ($userId ?
                         "(SELECT COUNT(*) FROM publicacao_likes 
-                                              WHERE publicacao_id = p.id_publicacao AND utilizador_id = $userId) AS user_liked,
-                                             (SELECT COUNT(*) FROM publicacao_salvas 
-                                              WHERE publicacao_id = p.id_publicacao AND utilizador_id = $userId) AS user_saved"
+                            WHERE publicacao_id = p.id_publicacao AND utilizador_id = $userId) AS user_liked,
+                            (SELECT COUNT(*) FROM publicacao_salvas 
+                            WHERE publicacao_id = p.id_publicacao AND utilizador_id = $userId) AS user_saved"
                         : "0 AS user_liked, 0 AS user_saved") . "
-                                 FROM publicacoes p
-                                 JOIN utilizadores u ON p.id_utilizador = u.id
-                                 LEFT JOIN perfis pr ON pr.id_utilizador = u.id
-                                 WHERE p.deletado_em = '0000-00-00 00:00:00' 
-                                   AND p.conteudo LIKE '%$termo_sql%'
-                                 ORDER BY p.data_criacao DESC";
+                        FROM publicacoes p
+                        JOIN utilizadores u ON p.id_utilizador = u.id
+                        LEFT JOIN perfis pr ON pr.id_utilizador = u.id
+                        LEFT JOIN publicacao_medias pm ON pm.publicacao_id = p.id_publicacao
+                        WHERE p.deletado_em = '0000-00-00 00:00:00' 
+                        AND (p.conteudo LIKE '%$termo_sql%' OR pm.url LIKE '%$termo_sql%')
+                        GROUP BY p.id_publicacao
+                        ORDER BY p.data_criacao DESC";
                     $resPosts = mysqli_query($con, $sqlPosts);
 
                     if (mysqli_num_rows($resPosts) > 0) {
@@ -271,6 +646,7 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
                             $likedClass = $post['user_liked'] ? 'liked' : '';
                             $savedClass = $post['user_saved'] ? 'saved' : '';
                             $commentCount = getCommentCount($con, $publicacaoId);
+                            $postMedias = getPostMedias($con, $publicacaoId);
                             ?>
                             <article class="post" data-post-id="<?php echo $publicacaoId; ?>">
                                 <div class="post-header">
@@ -287,10 +663,59 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
                                         <span
                                             class="timestamp"><?php echo date('d/m/Y H:i', strtotime($post['data_criacao'])); ?></span>
                                     </div>
+                                    
                                 </div>
                                 <div class="post-content">
                                     <p><?php echo nl2br(makeLinksClickable($post['conteudo'])); ?></p>
                                 </div>
+
+                                <!-- Exibir mídias da publicação -->
+                                <?php if (!empty($postMedias)): ?>
+                                    <div class="post-images">
+                                        <?php
+                                        $mediaCount = count($postMedias);
+                                        $gridClass = '';
+                                        if ($mediaCount == 1)
+                                            $gridClass = 'single';
+                                        elseif ($mediaCount == 2)
+                                            $gridClass = 'double';
+                                        elseif ($mediaCount == 3)
+                                            $gridClass = 'triple';
+                                        elseif ($mediaCount == 4)
+                                            $gridClass = 'quad';
+                                        else
+                                            $gridClass = 'multiple';
+                                        ?>
+                                        <div class="images-grid <?php echo $gridClass; ?>">
+                                            <?php foreach ($postMedias as $i => $media): ?>
+                                                <?php if ($i < 4 || $mediaCount <= 4): ?>
+                                                    <div class="media-item"
+                                                        onclick="openMediaModal(<?php echo $publicacaoId; ?>, <?php echo $i; ?>)">
+                                                        <?php if ($media['tipo'] === 'video'): ?>
+                                                            <div class="video-container">
+                                                                <video muted preload="metadata" playsInline>
+                                                                    <source
+                                                                        src="images/publicacoes/<?php echo htmlspecialchars($media['url']); ?>"
+                                                                        type="video/mp4">
+                                                                    Seu navegador não suporta vídeos.
+                                                                </video>
+                                                            </div>
+                                                        <?php else: ?>
+                                                            <img src="images/publicacoes/<?php echo htmlspecialchars($media['url']); ?>"
+                                                                alt="Imagem da publicação" class="post-media">
+                                                        <?php endif; ?>
+                                                        <?php if ($i == 3 && $mediaCount > 4): ?>
+                                                            <div class="more-images-overlay">
+                                                                +<?php echo $mediaCount - 4; ?>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+
                                 <div class="post-actions">
                                     <button class="like-btn <?php echo $likedClass; ?>"
                                         data-publicacao-id="<?php echo $publicacaoId; ?>">
@@ -306,6 +731,11 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
                                         data-publicacao-id="<?php echo $publicacaoId; ?>">
                                         <i class="fas fa-bookmark"></i>
                                     </button>
+                                    <?php if (isset($_SESSION['id']) && ($_SESSION['id'] == $post['id_utilizador'] || (isset($_SESSION['id_tipos_utilizador']) && $_SESSION['id_tipos_utilizador'] == 2))) { ?>
+                                        <button class="delete-btn" onclick="deletePost(<?php echo $publicacaoId; ?>, this)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    <?php } ?>
                                 </div>
                             </article>
                             <?php
@@ -317,73 +747,73 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
                 </div>
             </section>
         </main>
-    </div>
 
-    <script>
-        // Like functionality
-        document.querySelectorAll('.like-btn').forEach(button => {
-            button.addEventListener('click', function () {
-                const publicacaoId = this.getAttribute('data-publicacao-id');
-                const likeCount = this.querySelector('.like-count');
 
-                fetch('../backend/like.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `id_publicacao=${publicacaoId}`
-                })
-                    .then(response => response.text())
-                    .then(data => {
-                        if (data === 'liked') {
-                            this.classList.add('liked');
-                            likeCount.textContent = parseInt(likeCount.textContent) + 1;
-                        } else if (data === 'unliked') {
-                            this.classList.remove('liked');
-                            likeCount.textContent = parseInt(likeCount.textContent) - 1;
-                        }
+        <script>
+            // Like functionality
+            document.querySelectorAll('.like-btn').forEach(button => {
+                button.addEventListener('click', function () {
+                    const publicacaoId = this.getAttribute('data-publicacao-id');
+                    const likeCount = this.querySelector('.like-count');
+
+                    fetch('../backend/like.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `id_publicacao=${publicacaoId}`
                     })
-                    .catch(error => console.error('Error:', error));
+                        .then(response => response.text())
+                        .then(data => {
+                            if (data === 'liked') {
+                                this.classList.add('liked');
+                                likeCount.textContent = parseInt(likeCount.textContent) + 1;
+                            } else if (data === 'unliked') {
+                                this.classList.remove('liked');
+                                likeCount.textContent = parseInt(likeCount.textContent) - 1;
+                            }
+                        })
+                        .catch(error => console.error('Error:', error));
+                });
             });
-        });
 
 
-        // Referências para o modal e o botão de fechar
-        const modal = document.getElementById('commentsModal');
-        const closeButton = modal.querySelector('.close-button');
+            // Referências para o modal e o botão de fechar
+            const modal = document.getElementById('commentsModal');
+            const closeButton = modal.querySelector('.close-button');
 
-        // Função para fechar o modal
-        function closeModal() {
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
-        }
-
-        // Evento para o botão de fechar
-        closeButton.addEventListener('click', closeModal);
-
-        // Fechar modal ao clicar fora
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                closeModal();
+            // Função para fechar o modal
+            function closeModal() {
+                modal.style.display = 'none';
+                document.body.style.overflow = 'auto';
             }
-        });
 
-        // Variável global para armazenar o ID da publicação atual
-        let currentPostId = null;
+            // Evento para o botão de fechar
+            closeButton.addEventListener('click', closeModal);
 
-        // Função para abrir o modal de comentários
-        // Atualize a função openCommentsModal:
-        function openCommentsModal(postId) {
-            currentPostId = postId;
+            // Fechar modal ao clicar fora
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
 
-            fetch(`../backend/get_post.php?id=${postId}`)
-                .then(response => response.json())
-                .then(post => {
-                    const dataCriacao = new Date(post.data_criacao);
-                    const dataFormatada = `${dataCriacao.getDate().toString().padStart(2, '0')}-${(dataCriacao.getMonth() + 1).toString().padStart(2, '0')}-${dataCriacao.getFullYear()} ${dataCriacao.getHours().toString().padStart(2, '0')}:${dataCriacao.getMinutes().toString().padStart(2, '0')}`;
+            // Variável global para armazenar o ID da publicação atual
+            let currentPostId = null;
 
-                    // Adicione a classe 'post-content' para manter a formatação
-                    document.getElementById('modalPostContent').innerHTML = `
+            // Função para abrir o modal de comentários
+            // Atualize a função openCommentsModal:
+            function openCommentsModal(postId) {
+                currentPostId = postId;
+
+                fetch(`../backend/get_post.php?id=${postId}`)
+                    .then(response => response.json())
+                    .then(post => {
+                        const dataCriacao = new Date(post.data_criacao);
+                        const dataFormatada = `${dataCriacao.getDate().toString().padStart(2, '0')}-${(dataCriacao.getMonth() + 1).toString().padStart(2, '0')}-${dataCriacao.getFullYear()} ${dataCriacao.getHours().toString().padStart(2, '0')}:${dataCriacao.getMinutes().toString().padStart(2, '0')}`;
+
+                        // Adicione a classe 'post-content' para manter a formatação
+                        document.getElementById('modalPostContent').innerHTML = `
         <div class="post">
           <div class="post-header">
             <a href="perfil.php?id=${post.id_utilizador}">
@@ -403,206 +833,323 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
         </div>
       `;
 
-                    loadComments(postId);
-                });
-
-            document.getElementById('currentPostId').value = postId;
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-        }
-
-        // Função para carregar comentários
-        function loadComments(postId) {
-            fetch(`../backend/get_comments.php?post_id=${postId}`)
-                .then(response => response.json())
-                .then(comments => {
-                    const commentsList = document.getElementById('commentsList');
-                    commentsList.innerHTML = '';
-
-                    comments.forEach(comment => {
-                        // Formatar a data do comentário
-                        const dataComentario = new Date(comment.data);
-                        const dataComentarioFormatada = `${dataComentario.getDate().toString().padStart(2, '0')}-${(dataComentario.getMonth() + 1).toString().padStart(2, '0')}-${dataComentario.getFullYear()} ${dataComentario.getHours().toString().padStart(2, '0')}:${dataComentario.getMinutes().toString().padStart(2, '0')}`;
-
-                        const commentItem = document.createElement('div');
-                        commentItem.className = 'comment-item';
-                        commentItem.innerHTML = `
-                            <a href="perfil.php?id=${comment.utilizador_id}">
-                                <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
-                            </a>
-                            <div class="comment-content">
-                                <div class="comment-header">
-                                    <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
-                                        <span class="comment-username">${comment.nick}</span>
-                                    </a>
-                                    <span class="comment-time">${dataComentarioFormatada}</span>
-                                </div>
-                                <p class="comment-text">${comment.conteudo}</p>
-                            </div>
-                        `;
-                        commentsList.appendChild(commentItem);
+                        loadComments(postId);
                     });
-                });
-        }
 
-        // Função para mostrar toast
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            const toastMessage = document.getElementById('toast-message');
-            toastMessage.textContent = message;
+                document.getElementById('currentPostId').value = postId;
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
 
-            // Mostrar o toast
-            toast.style.display = 'flex';
-            setTimeout(() => {
-                toast.classList.add('show');
-            }, 10);
+            // Função para carregar comentários
+            function loadComments(postId) {
+                fetch(`../backend/get_comments.php?post_id=${postId}`)
+                    .then(response => response.json())
+                    .then(comments => {
+                        const commentsList = document.getElementById('commentsList');
+                        commentsList.innerHTML = '';
 
-            // Esconder após 3 segundos
-            setTimeout(() => {
-                toast.classList.remove('show');
+                        comments.forEach(comment => {
+                            const dataComentario = new Date(comment.data);
+                            const dataComentarioFormatada = `${dataComentario.getDate().toString().padStart(2, '0')}-${(dataComentario.getMonth() + 1).toString().padStart(2, '0')}-${dataComentario.getFullYear()} ${dataComentario.getHours().toString().padStart(2, '0')}:${dataComentario.getMinutes().toString().padStart(2, '0')}`;
+
+                            const commentItem = document.createElement('div');
+                            commentItem.className = 'comment-item';
+                            commentItem.innerHTML = `
+    <a href="perfil.php?id=${comment.utilizador_id}">
+        <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
+    </a>
+    <div class="comment-content">
+        <div class="comment-header">
+            <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
+                <span class="comment-username">${comment.nick}</span>
+            </a>
+            <span class="comment-time">${dataComentarioFormatada}</span>
+            ${(<?php echo $currentUserId; ?> === comment.utilizador_id || <?php echo $currentUserType; ?> === 2) ?
+                                    `<button class="delete-comment-btn" onclick="deleteComment(${comment.id}, this)">
+                    <i class="fas fa-trash"></i>
+                </button>` : ''}
+        </div>
+        <p class="comment-text">${comment.conteudo}</p>
+    </div>
+`;
+                            commentsList.appendChild(commentItem);
+                        });
+                    });
+            }
+
+            // Função para mostrar toast
+            function showToast(message) {
+                const toast = document.getElementById('toast');
+                const toastMessage = document.getElementById('toast-message');
+                toastMessage.textContent = message;
+
+                // Mostrar o toast
+                toast.style.display = 'flex';
                 setTimeout(() => {
-                    toast.style.display = 'none';
-                }, 300);
-            }, 3000);
-        }
+                    toast.classList.add('show');
+                }, 10);
 
-        // Dentro do evento de clique do save-btn:
-        document.querySelectorAll('.save-btn').forEach(button => {
-            button.addEventListener('click', function () {
-                const publicacaoId = this.getAttribute('data-publicacao-id');
-                const isCurrentlySaved = this.classList.contains('saved');
-
-                fetch('../backend/save_post.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `id_publicacao=${publicacaoId}`
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            if (data.action === 'saved') {
-                                this.classList.add('saved');
-                                showToast('Adicionado aos itens salvos');
-                            } else {
-                                this.classList.remove('saved');
-                                showToast('Removido dos itens salvos');
-                            }
-                        }
-                    })
-                    .catch(error => console.error('Error:', error));
-            });
-        });
-
-
-        // Envio de novo comentário
-        document.getElementById('commentForm').addEventListener('submit', function (e) {
-            e.preventDefault();
-
-            const commentInput = document.getElementById('commentInput');
-            const content = commentInput.value.trim();
-
-            if (content && currentPostId) {
-                const formData = new FormData();
-                formData.append('post_id', currentPostId);
-                formData.append('content', content);
-
-                fetch('../backend/add_comment.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                    .then(response => response.json())
-                    .then(result => {
-                        if (result.success) {
-                            commentInput.value = '';
-                            loadComments(currentPostId);
-
-                            // Atualiza contador de comentários
-                            const commentCount = document.querySelector(`.comment-btn[onclick*="${currentPostId}"] .comment-count`);
-                            if (commentCount) {
-                                commentCount.textContent = parseInt(commentCount.textContent) + 1;
-                            }
-                        }
-                    });
+                // Esconder após 3 segundos
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => {
+                        toast.style.display = 'none';
+                    }, 300);
+                }, 3000);
             }
-        });
 
-        document.addEventListener('click', function (e) {
-            const followBtn = e.target.closest('.follow-btn');
-            if (followBtn) {
-                e.preventDefault();
-                const userId = followBtn.getAttribute('data-user-id');
-                const isFollowing = followBtn.classList.contains('following');
-                const profileCard = followBtn.closest('.profile-card');
+            // Variáveis globais para controle da confirmação
+            let pendingDelete = {
+                id: null,
+                element: null,
+                type: null // 'post' ou 'comment'
+            };
 
-                // Criar FormData para enviar
-                const formData = new FormData();
-                formData.append('user_id', userId);
+            // Função para mostrar o modal de confirmação
+            function showConfirmation(callback) {
+                const modal = document.getElementById('confirmationModal');
+                const confirmBtn = document.getElementById('confirmAction');
+                const cancelBtn = document.getElementById('confirmCancel');
 
-                fetch('../backend/seguir_alternativo.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            // Atualizar estado do botão
-                            if (data.action === 'follow') {
-                                followBtn.classList.add('following');
-                                followBtn.textContent = 'Seguindo';
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
 
-                                // Incrementar contador de seguidores
-                                const seguidoresElement = profileCard.querySelector('.profile-info small strong:first-child');
-                                let seguidoresCount = parseInt(seguidoresElement.textContent);
-                                seguidoresElement.textContent = seguidoresCount + 1;
-                            } else {
-                                followBtn.classList.remove('following');
-                                followBtn.textContent = 'Seguir';
+                // Limpa listeners anteriores
+                confirmBtn.onclick = null;
+                cancelBtn.onclick = null;
 
-                                // Decrementar contador de seguidores
-                                const seguidoresElement = profileCard.querySelector('.profile-info small strong:first-child');
-                                let seguidoresCount = parseInt(seguidoresElement.textContent);
-                                seguidoresElement.textContent = seguidoresCount - 1;
-                            }
-                        } else {
-                            console.error('Erro:', data.message);
-                        }
-                    })
-                    .catch(error => console.error('Error:', error));
+                confirmBtn.onclick = function () {
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                    callback(true);
+                };
+
+                cancelBtn.onclick = function () {
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                    callback(false);
+                };
             }
-        });
 
-        // CORREÇÃO CARREGAR MAIS PERFIS
-        document.getElementById('loadMoreProfiles')?.addEventListener('click', function () {
-            const termo = "<?php echo $termo; ?>";
-            const currentCount = document.querySelectorAll('.profile-card').length;
+            // Função para apagar publicação
+            function deletePost(postId, element) {
+                pendingDelete = {
+                    id: postId,
+                    element: element,
+                    type: 'post'
+                };
 
-            fetch(`../backend/load_more_profiles.php?termo=${termo}&offset=${currentCount}`)
-                .then(response => response.text())
-                .then(html => {
-                    if (html.trim() === '') {
-                        this.style.display = 'none';
-                    } else {
-                        // Inserir antes do botão
-                        this.insertAdjacentHTML('beforebegin', html);
+                document.getElementById('confirmationMessage').textContent = 'Tem certeza que deseja apagar esta publicação?';
+                showConfirmation(function (confirmed) {
+                    if (confirmed) {
+                        fetch('../backend/delete_post.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `id_publicacao=${postId}`
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Remove o elemento da publicação do DOM
+                                    element.closest('.post').style.opacity = '0';
+                                    element.closest('.post').style.transform = 'translateX(-100px)';
+                                    setTimeout(() => {
+                                        element.closest('.post').remove();
+                                    }, 300);
+                                    showToast('Publicação apagada com sucesso');
+                                } else {
+                                    showToast('Erro ao apagar publicação');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                showToast('Erro ao apagar publicação');
+                            });
                     }
                 });
-        });
+            }
 
-        // Tornar cards de perfil clicáveis
-        document.querySelectorAll('.profile-card').forEach(card => {
-            card.addEventListener('click', function (e) {
-                // Só redireciona se não foi clicado diretamente no botão de seguir
-                if (!e.target.closest('.follow-btn')) {
-                    const link = this.querySelector('.profile-link');
-                    if (link) {
-                        window.location.href = link.href;
+            // Função para apagar comentário
+            function deleteComment(commentId, element) {
+                pendingDelete = {
+                    id: commentId,
+                    element: element,
+                    type: 'comment'
+                };
+
+                document.getElementById('confirmationMessage').textContent = 'Tem a certeza que deseja apagar este comentário?';
+                showConfirmation(function (confirmed) {
+                    if (confirmed) {
+                        fetch('../backend/delete_comment.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `id_comentario=${commentId}`
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Remove o elemento do comentário do DOM
+                                    element.closest('.comment-item').remove();
+                                    showToast('Comentário apagado com sucesso');
+
+                                    // Atualiza a contagem de comentários
+                                    const commentCount = document.querySelector(`.comment-btn[onclick*="${currentPostId}"] .comment-count`);
+                                    if (commentCount) {
+                                        commentCount.textContent = parseInt(commentCount.textContent) - 1;
+                                    }
+                                } else {
+                                    showToast('Erro ao apagar comentário');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                showToast('Erro ao apagar comentário');
+                            });
                     }
+                });
+            }
+            // Dentro do evento de clique do save-btn:
+            document.querySelectorAll('.save-btn').forEach(button => {
+                button.addEventListener('click', function () {
+                    const publicacaoId = this.getAttribute('data-publicacao-id');
+                    const isCurrentlySaved = this.classList.contains('saved');
+
+                    fetch('../backend/save_post.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `id_publicacao=${publicacaoId}`
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                if (data.action === 'saved') {
+                                    this.classList.add('saved');
+                                    showToast('Adicionado aos itens salvos');
+                                } else {
+                                    this.classList.remove('saved');
+                                    showToast('Removido dos itens salvos');
+                                }
+                            }
+                        })
+                        .catch(error => console.error('Error:', error));
+                });
+            });
+
+
+            // Envio de novo comentário
+            document.getElementById('commentForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                const commentInput = document.getElementById('commentInput');
+                const content = commentInput.value.trim();
+
+                if (content && currentPostId) {
+                    const formData = new FormData();
+                    formData.append('post_id', currentPostId);
+                    formData.append('content', content);
+
+                    fetch('../backend/add_comment.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(response => response.json())
+                        .then(result => {
+                            if (result.success) {
+                                commentInput.value = '';
+                                loadComments(currentPostId);
+
+                                // Atualiza contador de comentários
+                                const commentCount = document.querySelector(`.comment-btn[onclick*="${currentPostId}"] .comment-count`);
+                                if (commentCount) {
+                                    commentCount.textContent = parseInt(commentCount.textContent) + 1;
+                                }
+                            }
+                        });
                 }
             });
-        });
-    </script>
+
+            document.addEventListener('click', function (e) {
+                const followBtn = e.target.closest('.follow-btn');
+                if (followBtn) {
+                    e.preventDefault();
+                    const userId = followBtn.getAttribute('data-user-id');
+                    const isFollowing = followBtn.classList.contains('following');
+                    const profileCard = followBtn.closest('.profile-card');
+
+                    // Criar FormData para enviar
+                    const formData = new FormData();
+                    formData.append('user_id', userId);
+
+                    fetch('../backend/seguir_alternativo.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Atualizar estado do botão
+                                if (data.action === 'follow') {
+                                    followBtn.classList.add('following');
+                                    followBtn.textContent = 'Seguindo';
+
+                                    // Incrementar contador de seguidores
+                                    const seguidoresElement = profileCard.querySelector('.profile-info small strong:first-child');
+                                    let seguidoresCount = parseInt(seguidoresElement.textContent);
+                                    seguidoresElement.textContent = seguidoresCount + 1;
+                                } else {
+                                    followBtn.classList.remove('following');
+                                    followBtn.textContent = 'Seguir';
+
+                                    // Decrementar contador de seguidores
+                                    const seguidoresElement = profileCard.querySelector('.profile-info small strong:first-child');
+                                    let seguidoresCount = parseInt(seguidoresElement.textContent);
+                                    seguidoresElement.textContent = seguidoresCount - 1;
+                                }
+                            } else {
+                                console.error('Erro:', data.message);
+                            }
+                        })
+                        .catch(error => console.error('Error:', error));
+                }
+            });
+
+            // CORREÇÃO CARREGAR MAIS PERFIS
+            document.getElementById('loadMoreProfiles')?.addEventListener('click', function () {
+                const termo = "<?php echo $termo; ?>";
+                const currentCount = document.querySelectorAll('.profile-card').length;
+
+                fetch(`../backend/load_more_profiles.php?termo=${termo}&offset=${currentCount}`)
+                    .then(response => response.text())
+                    .then(html => {
+                        if (html.trim() === '') {
+                            this.style.display = 'none';
+                        } else {
+                            // Inserir antes do botão
+                            this.insertAdjacentHTML('beforebegin', html);
+                        }
+                    });
+            });
+
+            // Tornar cards de perfil clicáveis
+            document.querySelectorAll('.profile-card').forEach(card => {
+                card.addEventListener('click', function (e) {
+                    // Só redireciona se não foi clicado diretamente no botão de seguir
+                    if (!e.target.closest('.follow-btn')) {
+                        const link = this.querySelector('.profile-link');
+                        if (link) {
+                            window.location.href = link.href;
+                        }
+                    }
+                });
+            });
+        </script>
 </body>
 
 </html>
