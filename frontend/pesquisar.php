@@ -201,6 +201,15 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
         object-fit: contain;
     }
 
+    .no-comments {
+        text-align: center;
+        padding: 20px;
+        color: var(--text-secondary);
+        font-style: italic;
+        border-top: 1px solid var(--border-light);
+        margin-top: 15px;
+    }
+
     .image-modal-nav {
         position: fixed;
         bottom: 20px;
@@ -419,12 +428,12 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
         bottom: 20px;
         left: 50%;
         transform: translateX(-50%);
-        background: var(--bg-card);
+        background: var(--color-primary);
         color: white;
         padding: 12px 24px;
         border-radius: 8px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        display: none;
+        display: flex;
         align-items: center;
         gap: 12px;
         z-index: 1000;
@@ -532,14 +541,14 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
         <aside class="sidebar">
             <nav>
                 <ul>
-                    <li><a href="#" class="active"><i class="fas fa-home"></i> <span>Home</span></a></li>
+                    <li><a href="index.php"><i class="fas fa-home"></i> <span>Home</span></a></li>
                     <li><a href="perfil.php"><i class="fas fa-user"></i> <span>Perfil</span></a></li>
                     <li><a href="#"><i class="fas fa-briefcase"></i> <span>Trabalho</span></a></li>
                     <li><a href="#"><i class="fas fa-comments"></i> <span>Mensagens</span></a></li>
                     <li><a href="#"><i class="fas fa-bell"></i> <span>Notificações</span></a></li>
                     <li><a href="#"><i class="fas fa-network-wired"></i> <span>Conexões</span></a></li>
                     <li><a href="itens_salvos.php"><i class="fas fa-bookmark"></i> <span>Itens Salvos</span></a></li>
-                    <li><a href="#"><i class="fas fa-chart-line"></i> <span>Estatisticas</span></a></li>
+                    <li><a href="#" class="active"><i class="fas fa-search"></i> <span>Pesquisar</span></a></li>
                 </ul>
             </nav>
         </aside>
@@ -663,7 +672,7 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
                                         <span
                                             class="timestamp"><?php echo date('d/m/Y H:i', strtotime($post['data_criacao'])); ?></span>
                                     </div>
-                                    
+
                                 </div>
                                 <div class="post-content">
                                     <p><?php echo nl2br(makeLinksClickable($post['conteudo'])); ?></p>
@@ -731,7 +740,7 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
                                         data-publicacao-id="<?php echo $publicacaoId; ?>">
                                         <i class="fas fa-bookmark"></i>
                                     </button>
-                                    <?php if (isset($_SESSION['id']) && ($_SESSION['id'] == $post['id_utilizador'] || (isset($_SESSION['id_tipos_utilizador']) && $_SESSION['id_tipos_utilizador'] == 2))) { ?>
+                                    <?php if ($currentUserId && ($currentUserId == $post['id_utilizador'] || $currentUserType == 2)) { ?>
                                         <button class="delete-btn" onclick="deletePost(<?php echo $publicacaoId; ?>, this)">
                                             <i class="fas fa-trash"></i>
                                         </button>
@@ -750,6 +759,122 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
 
 
         <script>
+
+            // Variáveis globais para controle da confirmação
+            let pendingDelete = {
+                id: null,
+                element: null,
+                type: null // 'post' ou 'comment'
+            };
+
+            // Função para mostrar o modal de confirmação (reutilizável)
+            function showConfirmation(callback) {
+                const modal = document.getElementById('confirmationModal');
+                const confirmBtn = document.getElementById('confirmAction');
+                const cancelBtn = document.getElementById('confirmCancel');
+
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+
+                // Limpa listeners anteriores
+                confirmBtn.onclick = null;
+                cancelBtn.onclick = null;
+
+                confirmBtn.onclick = function () {
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                    callback(true);
+                };
+
+                cancelBtn.onclick = function () {
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                    callback(false);
+                };
+            }
+
+            // Função para apagar publicação com modal de confirmação
+            function deletePost(postId, element) {
+                pendingDelete = {
+                    id: postId,
+                    element: element,
+                    type: 'post'
+                };
+
+                document.getElementById('confirmationMessage').textContent = 'Tem certeza que deseja apagar esta publicação?';
+                showConfirmation(function (confirmed) {
+                    if (confirmed) {
+                        fetch('../backend/delete_post.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `id_publicacao=${postId}`
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Remove o elemento da publicação do DOM
+                                    element.closest('.post').style.opacity = '0';
+                                    element.closest('.post').style.transform = 'translateX(-100px)';
+                                    setTimeout(() => {
+                                        element.closest('.post').remove();
+                                    }, 300);
+                                    showToast('Publicação apagada com sucesso');
+                                } else {
+                                    showToast('Erro ao apagar publicação');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                showToast('Erro ao apagar publicação');
+                            });
+                    }
+                });
+            }
+
+            // Função para apagar comentário com modal de confirmação
+            function deleteComment(commentId, element) {
+                pendingDelete = {
+                    id: commentId,
+                    element: element,
+                    type: 'comment'
+                };
+
+                document.getElementById('confirmationMessage').textContent = 'Tem a certeza que deseja apagar este comentário?';
+                showConfirmation(function (confirmed) {
+                    if (confirmed) {
+                        fetch('../backend/delete_comment.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: `id_comentario=${commentId}`
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Remove o elemento do comentário do DOM
+                                    element.closest('.comment-item').remove();
+                                    showToast('Comentário apagado com sucesso');
+
+                                    // Atualiza a contagem de comentários
+                                    const commentCount = document.querySelector(`.comment-btn[onclick*="${currentPostId}"] .comment-count`);
+                                    if (commentCount) {
+                                        commentCount.textContent = parseInt(commentCount.textContent) - 1;
+                                    }
+                                } else {
+                                    showToast('Erro ao apagar comentário');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                showToast('Erro ao apagar comentário');
+                            });
+                    }
+                });
+            }
+
             // Like functionality
             document.querySelectorAll('.like-btn').forEach(button => {
                 button.addEventListener('click', function () {
@@ -802,7 +927,6 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
             let currentPostId = null;
 
             // Função para abrir o modal de comentários
-            // Atualize a função openCommentsModal:
             function openCommentsModal(postId) {
                 currentPostId = postId;
 
@@ -849,6 +973,15 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
                         const commentsList = document.getElementById('commentsList');
                         commentsList.innerHTML = '';
 
+                        // Adiciona mensagem quando não há comentários
+                        if (comments.length === 0) {
+                            const noCommentsMsg = document.createElement('div');
+                            noCommentsMsg.className = 'no-comments';
+                            noCommentsMsg.textContent = 'Ainda sem comentários. Seja o primeiro a comentar!';
+                            commentsList.appendChild(noCommentsMsg);
+                            return;
+                        }
+
                         comments.forEach(comment => {
                             const dataComentario = new Date(comment.data);
                             const dataComentarioFormatada = `${dataComentario.getDate().toString().padStart(2, '0')}-${(dataComentario.getMonth() + 1).toString().padStart(2, '0')}-${dataComentario.getFullYear()} ${dataComentario.getHours().toString().padStart(2, '0')}:${dataComentario.getMinutes().toString().padStart(2, '0')}`;
@@ -856,23 +989,25 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
                             const commentItem = document.createElement('div');
                             commentItem.className = 'comment-item';
                             commentItem.innerHTML = `
-    <a href="perfil.php?id=${comment.utilizador_id}">
-        <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
-    </a>
-    <div class="comment-content">
-        <div class="comment-header">
-            <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
-                <span class="comment-username">${comment.nick}</span>
-            </a>
-            <span class="comment-time">${dataComentarioFormatada}</span>
-            ${(<?php echo $currentUserId; ?> === comment.utilizador_id || <?php echo $currentUserType; ?> === 2) ?
+                    <a href="perfil.php?id=${comment.utilizador_id}">
+                        <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
+                    </a>
+                    <div class="comment-content">
+                        <div class="comment-header">
+                            <div class="comment-user-info">
+                                <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
+                                    <span class="comment-username">${comment.nick}</span>
+                                </a>
+                                <span class="comment-time">${dataComentarioFormatada}</span>
+                            </div>
+                            ${(<?php echo $_SESSION['id']; ?> == comment.utilizador_id || <?php echo $_SESSION['id_tipos_utilizador']; ?> == 2) ?
                                     `<button class="delete-comment-btn" onclick="deleteComment(${comment.id}, this)">
-                    <i class="fas fa-trash"></i>
-                </button>` : ''}
-        </div>
-        <p class="comment-text">${comment.conteudo}</p>
-    </div>
-`;
+                                    <i class="fas fa-trash"></i>
+                                </button>` : ''}
+                        </div>
+                        <p class="comment-text">${comment.conteudo}</p>
+                    </div>
+                `;
                             commentsList.appendChild(commentItem);
                         });
                     });
@@ -899,120 +1034,6 @@ $excludeSelf = $userId ? "AND u.id != $userId" : "";
                 }, 3000);
             }
 
-            // Variáveis globais para controle da confirmação
-            let pendingDelete = {
-                id: null,
-                element: null,
-                type: null // 'post' ou 'comment'
-            };
-
-            // Função para mostrar o modal de confirmação
-            function showConfirmation(callback) {
-                const modal = document.getElementById('confirmationModal');
-                const confirmBtn = document.getElementById('confirmAction');
-                const cancelBtn = document.getElementById('confirmCancel');
-
-                modal.style.display = 'flex';
-                document.body.style.overflow = 'hidden';
-
-                // Limpa listeners anteriores
-                confirmBtn.onclick = null;
-                cancelBtn.onclick = null;
-
-                confirmBtn.onclick = function () {
-                    modal.style.display = 'none';
-                    document.body.style.overflow = 'auto';
-                    callback(true);
-                };
-
-                cancelBtn.onclick = function () {
-                    modal.style.display = 'none';
-                    document.body.style.overflow = 'auto';
-                    callback(false);
-                };
-            }
-
-            // Função para apagar publicação
-            function deletePost(postId, element) {
-                pendingDelete = {
-                    id: postId,
-                    element: element,
-                    type: 'post'
-                };
-
-                document.getElementById('confirmationMessage').textContent = 'Tem certeza que deseja apagar esta publicação?';
-                showConfirmation(function (confirmed) {
-                    if (confirmed) {
-                        fetch('../backend/delete_post.php', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/x-www-form-urlencoded',
-                            },
-                            body: `id_publicacao=${postId}`
-                        })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    // Remove o elemento da publicação do DOM
-                                    element.closest('.post').style.opacity = '0';
-                                    element.closest('.post').style.transform = 'translateX(-100px)';
-                                    setTimeout(() => {
-                                        element.closest('.post').remove();
-                                    }, 300);
-                                    showToast('Publicação apagada com sucesso');
-                                } else {
-                                    showToast('Erro ao apagar publicação');
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error:', error);
-                                showToast('Erro ao apagar publicação');
-                            });
-                    }
-                });
-            }
-
-            // Função para apagar comentário
-            function deleteComment(commentId, element) {
-                pendingDelete = {
-                    id: commentId,
-                    element: element,
-                    type: 'comment'
-                };
-
-                document.getElementById('confirmationMessage').textContent = 'Tem a certeza que deseja apagar este comentário?';
-                showConfirmation(function (confirmed) {
-                    if (confirmed) {
-                        fetch('../backend/delete_comment.php', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/x-www-form-urlencoded',
-                            },
-                            body: `id_comentario=${commentId}`
-                        })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    // Remove o elemento do comentário do DOM
-                                    element.closest('.comment-item').remove();
-                                    showToast('Comentário apagado com sucesso');
-
-                                    // Atualiza a contagem de comentários
-                                    const commentCount = document.querySelector(`.comment-btn[onclick*="${currentPostId}"] .comment-count`);
-                                    if (commentCount) {
-                                        commentCount.textContent = parseInt(commentCount.textContent) - 1;
-                                    }
-                                } else {
-                                    showToast('Erro ao apagar comentário');
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error:', error);
-                                showToast('Erro ao apagar comentário');
-                            });
-                    }
-                });
-            }
             // Dentro do evento de clique do save-btn:
             document.querySelectorAll('.save-btn').forEach(button => {
                 button.addEventListener('click', function () {

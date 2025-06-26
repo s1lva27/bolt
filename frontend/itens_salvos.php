@@ -72,6 +72,15 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        .no-comments {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-style: italic;
+            border-top: 1px solid var(--border-light);
+            margin-top: 15px;
+        }
+
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -188,67 +197,40 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
             overflow: hidden;
         }
 
-        .toast {
+        /* Toast Notification - Igual ao index.php */
+        /* Toast Notification - ATUALIZADO */
+        #toast {
             position: fixed;
-            bottom: 30px;
-            right: 30px;
-            background-color: #FF5722;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--color-primary);
             color: white;
-            border-radius: var(--radius-md);
-            padding: 16px 24px;
-            display: flex;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: none;
+            /* Adicionado: começa oculto */
             align-items: center;
             gap: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            transform: translateY(100px);
+            z-index: 1000;
             opacity: 0;
-            transition: all 0.3s ease;
-            z-index: 10000;
-            display: none;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            /* Impede interação acidental */
         }
 
-        .toast.show {
-            display: flex;
-            transform: translateY(0);
+        #toast.show {
             opacity: 1;
         }
 
         .toast-icon {
-            font-size: 1.5rem;
+            font-size: 1.2rem;
         }
 
         .toast-content p {
             margin: 0;
-            font-size: 1rem;
-        }
-
-        .post-actions .delete-btn {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            margin-left: auto;
-            padding: 5px;
-            transition: color 0.2s ease;
-        }
-
-        .post-actions .delete-btn:hover {
-            color: #ff3333;
-        }
-
-        .comment-item .delete-comment-btn {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            margin-left: 10px;
-            padding: 2px;
-            font-size: 0.8rem;
-            transition: color 0.2s ease;
-        }
-
-        .comment-item .delete-comment-btn:hover {
-            color: #ff3333;
+            font-size: 0.9rem;
         }
     </style>
 </head>
@@ -476,6 +458,18 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
     <script src="js/video-player.js"></script>
 
     <script>
+
+
+        // Adicione no início do script
+        console.log('Script iniciado');
+        window.addEventListener('error', function (e) {
+            console.error('Erro global:', e.message, 'em', e.filename, 'linha:', e.lineno);
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const toast = document.getElementById('toast');
+            toast.style.display = 'none'; // Garante que comece oculto
+        });
         // Variáveis globais para controle da confirmação
         let pendingDelete = {
             postId: null,
@@ -784,18 +778,34 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
             const toastMessage = document.getElementById('toast-message');
             toastMessage.textContent = message;
 
+            // Reset do estado do toast
             toast.style.display = 'flex';
+            toast.classList.remove('show');
+
+            // Forçar recálculo do layout para permitir animação
+            void toast.offsetHeight;
+
+            // Animar a entrada
             setTimeout(() => {
                 toast.classList.add('show');
             }, 10);
 
+            // Esconder após 3 segundos
             setTimeout(() => {
                 toast.classList.remove('show');
                 setTimeout(() => {
                     toast.style.display = 'none';
-                }, 300);
+                }, 300); // Tempo da transição de saída
             }, 3000);
         }
+
+        // Inicialização do toast - ADICIONADO
+        document.addEventListener('DOMContentLoaded', function () {
+            const toast = document.getElementById('toast');
+            toast.style.display = 'none'; // Garante que comece oculto
+        });
+
+
 
         // Save functionality
         document.querySelectorAll('.save-btn').forEach(button => {
@@ -914,6 +924,15 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                     const commentsList = document.getElementById('commentsList');
                     commentsList.innerHTML = '';
 
+                    // Adiciona mensagem quando não há comentários
+                    if (comments.length === 0) {
+                        const noCommentsMsg = document.createElement('div');
+                        noCommentsMsg.className = 'no-comments';
+                        noCommentsMsg.textContent = 'Ainda sem comentários. Seja o primeiro a comentar!';
+                        commentsList.appendChild(noCommentsMsg);
+                        return;
+                    }
+
                     comments.forEach(comment => {
                         const dataComentario = new Date(comment.data);
                         const dataComentarioFormatada = `${dataComentario.getDate().toString().padStart(2, '0')}-${(dataComentario.getMonth() + 1).toString().padStart(2, '0')}-${dataComentario.getFullYear()} ${dataComentario.getHours().toString().padStart(2, '0')}:${dataComentario.getMinutes().toString().padStart(2, '0')}`;
@@ -926,11 +945,13 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                     </a>
                     <div class="comment-content">
                         <div class="comment-header">
-                            <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
-                                <span class="comment-username">${comment.nick}</span>
-                            </a>
-                            <span class="comment-time">${dataComentarioFormatada}</span>
-                            ${(<?php echo $currentUserId; ?> === comment.utilizador_id || <?php echo $currentUserType; ?> === 2) ?
+                            <div class="comment-user-info">
+                                <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
+                                    <span class="comment-username">${comment.nick}</span>
+                                </a>
+                                <span class="comment-time">${dataComentarioFormatada}</span>
+                            </div>
+                            ${(<?php echo $_SESSION['id']; ?> == comment.utilizador_id || <?php echo $_SESSION['id_tipos_utilizador']; ?> == 2) ?
                                 `<button class="delete-comment-btn" onclick="deleteComment(${comment.id}, this)">
                                     <i class="fas fa-trash"></i>
                                 </button>` : ''}

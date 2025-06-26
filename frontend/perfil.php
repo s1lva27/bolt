@@ -101,6 +101,39 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
 
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
+        .friends-btn {
+            background: #4CAF50 !important;
+            color: white;
+            text-decoration: none;
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            border-radius: 0.75rem;
+            transition: background-color 0.2s ease;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .friends-btn:hover {
+            background: #3e8e41 !important;
+        }
+
+        /* Certifique-se que o ícone tenha o mesmo estilo */
+        .friends-btn i {
+            font-size: 1rem;
+        }
+
+        .no-comments {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-style: italic;
+            border-top: 1px solid var(--border-light);
+            margin-top: 15px;
+        }
+
         /* Confirmation Modal Styles */
         .modal-overlay {
             position: fixed;
@@ -238,19 +271,21 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
                     background-image: url("<?php echo $fotoCapa; ?>");
                 }
             </style>
-            <form action="../backend/upload_capa.php" method="POST" enctype="multipart/form-data">
-                <label for="fotoInput" class="cover-photo-btn">
-                    <i data-lucide="camera"></i>
-                    Alterar Capa
-                    <input type="file" name="foto" id="fotoInput" accept="image/*" style="display: none;" required>
-                    <button type="submit" name="submit" id="uploadForm" style="display: none;"></button>
-                </label>
-                <script>
-                    document.getElementById('fotoInput').addEventListener('change', function () {
-                        document.getElementById('uploadForm').click();
-                    });
-                </script>
-            </form>
+            <?php if ($userId == $_SESSION["id"]): ?>
+                <form action="../backend/upload_capa.php" method="POST" enctype="multipart/form-data">
+                    <label for="fotoInput" class="cover-photo-btn">
+                        <i data-lucide="camera"></i>
+                        Alterar Capa
+                        <input type="file" name="foto" id="fotoInput" accept="image/*" style="display: none;" required>
+                        <button type="submit" name="submit" id="uploadForm" style="display: none;"></button>
+                    </label>
+                    <script>
+                        document.getElementById('fotoInput').addEventListener('change', function () {
+                            document.getElementById('uploadForm').click();
+                        });
+                    </script>
+                </form>
+            <?php endif; ?>
         </div>
 
         <div class="profile-photo-container">
@@ -294,21 +329,39 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
 
                 <?php if ((int) $userId != (int) $_SESSION["id"]): ?>
                     <?php
+                    // Verificar se o usuário atual segue o perfil visualizado
                     $sqlCheckFollow = "SELECT * FROM seguidores WHERE id_seguidor = ? AND id_seguido = ?";
                     $stmtFollow = $con->prepare($sqlCheckFollow);
                     $stmtFollow->bind_param("ii", $_SESSION["id"], $userId);
                     $stmtFollow->execute();
                     $resultFollow = $stmtFollow->get_result();
                     $isFollowing = $resultFollow->num_rows > 0;
+
+                    // Verificar se o perfil visualizado também segue o usuário atual (relação mútua)
+                    $sqlCheckMutual = "SELECT * FROM seguidores WHERE id_seguidor = ? AND id_seguido = ?";
+                    $stmtMutual = $con->prepare($sqlCheckMutual);
+                    $stmtMutual->bind_param("ii", $userId, $_SESSION["id"]);
+                    $stmtMutual->execute();
+                    $resultMutual = $stmtMutual->get_result();
+                    $isMutual = $resultMutual->num_rows > 0;
                     ?>
 
                     <form action="../backend/seguir.php" method="POST">
                         <input type="hidden" name="id_seguido" value="<?php echo $userId; ?>">
                         <?php if ($isFollowing): ?>
-                            <button type="submit" name="acao" value="unfollow" class="unfollow-btn">Deixar de
-                                Seguir</button>
+                            <?php if ($isMutual): ?>
+                                <button type="submit" name="acao" value="unfollow" class="friends-btn">
+                                    <i class="fas fa-user-friends"></i> Amigos
+                                </button>
+                            <?php else: ?>
+                                <button type="submit" name="acao" value="unfollow" class="unfollow-btn">
+                                    Deixar de Seguir
+                                </button>
+                            <?php endif; ?>
                         <?php else: ?>
-                            <button type="submit" name="acao" value="follow" class="follow-btn">Seguir</button>
+                            <button type="submit" name="acao" value="follow" class="follow-btn">
+                                Seguir
+                            </button>
                         <?php endif; ?>
                     </form>
                 <?php endif; ?>
@@ -593,6 +646,7 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
     <script src="js/video-player.js"></script>
 
     <script>
+
         // Variáveis globais para controle da confirmação
         let pendingDelete = {
             postId: null,
@@ -726,13 +780,21 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
             document.getElementById('commentsModal').style.display = 'none';
         });
 
-        // Modifique a função loadComments para incluir o botão de apagar
         function loadComments(postId) {
             fetch(`../backend/get_comments.php?post_id=${postId}`)
                 .then(response => response.json())
                 .then(comments => {
                     const commentsList = document.getElementById('commentsList');
                     commentsList.innerHTML = '';
+
+                    // Adiciona mensagem quando não há comentários
+                    if (comments.length === 0) {
+                        const noCommentsMsg = document.createElement('div');
+                        noCommentsMsg.className = 'no-comments';
+                        noCommentsMsg.textContent = 'Ainda sem comentários. Seja o primeiro a comentar!';
+                        commentsList.appendChild(noCommentsMsg);
+                        return;
+                    }
 
                     comments.forEach(comment => {
                         const dataComentario = new Date(comment.data);
@@ -746,10 +808,12 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
                     </a>
                     <div class="comment-content">
                         <div class="comment-header">
-                            <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
-                                <span class="comment-username">${comment.nick}</span>
-                            </a>
-                            <span class="comment-time">${dataComentarioFormatada}</span>
+                            <div class="comment-user-info">
+                                <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
+                                    <span class="comment-username">${comment.nick}</span>
+                                </a>
+                                <span class="comment-time">${dataComentarioFormatada}</span>
+                            </div>
                             ${(<?php echo $_SESSION['id']; ?> == comment.utilizador_id || <?php echo $_SESSION['id_tipos_utilizador']; ?> == 2) ?
                                 `<button class="delete-comment-btn" onclick="deleteComment(${comment.id}, this)">
                                     <i class="fas fa-trash"></i>
@@ -1003,41 +1067,7 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
             }
         }
 
-        function loadComments(postId) {
-            fetch(`../backend/get_comments.php?post_id=${postId}`)
-                .then(response => response.json())
-                .then(comments => {
-                    const commentsList = document.getElementById('commentsList');
-                    commentsList.innerHTML = '';
 
-                    comments.forEach(comment => {
-                        const dataComentario = new Date(comment.data);
-                        const dataComentarioFormatada = `${dataComentario.getDate().toString().padStart(2, '0')}-${(dataComentario.getMonth() + 1).toString().padStart(2, '0')}-${dataComentario.getFullYear()} ${dataComentario.getHours().toString().padStart(2, '0')}:${dataComentario.getMinutes().toString().padStart(2, '0')}`;
-
-                        const commentItem = document.createElement('div');
-                        commentItem.className = 'comment-item';
-                        commentItem.innerHTML = `
-                    <a href="perfil.php?id=${comment.utilizador_id}">
-                        <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
-                    </a>
-                    <div class="comment-content">
-                        <div class="comment-header">
-                            <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
-                                <span class="comment-username">${comment.nick}</span>
-                            </a>
-                            <span class="comment-time">${dataComentarioFormatada}</span>
-                            ${(<?php echo $_SESSION['id']; ?> == comment.utilizador_id || <?php echo $_SESSION['id_tipos_utilizador']; ?> == 2) ?
-                                `<button class="delete-comment-btn" onclick="deleteComment(${comment.id}, this)">
-                                    <i class="fas fa-trash"></i>
-                                </button>` : ''}
-                        </div>
-                        <p class="comment-text">${comment.conteudo}</p>
-                    </div>
-                `;
-                        commentsList.appendChild(commentItem);
-                    });
-                });
-        }
 
         // Envio de comentário
         document.getElementById('commentForm').addEventListener('submit', function (e) {

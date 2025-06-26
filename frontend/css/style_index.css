@@ -697,19 +697,43 @@ footer {
   display: flex;
   justify-content: space-between;
   margin-bottom: 4px;
+  align-items: center;
+  /* Adiciona alinhamento vertical */
+  gap: 8px;
+  /* Espaço entre os elementos */
+}
+
+.comment-header>div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-grow: 1;
+  min-width: 0;
+  /* Permite que o texto quebre */
 }
 
 .comment-username {
-  font-weight: 600;
-  color: var(--text-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .comment-time {
   font-size: 0.75rem;
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
-
+.delete-comment-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px;
+  font-size: 0.8rem;
+  transition: color 0.2s ease;
+  margin-left: 8px;
+}
 
 /* Comment Form */
 .comment-form {
@@ -1169,46 +1193,46 @@ footer {
   .images-grid {
     max-height: 300px;
   }
-  
+
   .images-grid.single .media-item {
     height: 250px;
   }
-  
+
   .images-grid.double .media-item {
     height: 150px;
   }
-  
+
   .images-grid.triple .media-item:first-child {
     height: 150px;
   }
-  
+
   .images-grid.triple .media-item:not(:first-child) {
     height: 73px;
   }
-  
+
   .images-grid.quad .media-item,
   .images-grid.multiple .media-item {
     height: 120px;
   }
-  
+
   .more-images-overlay {
     font-size: 1.2rem;
   }
-  
+
   .image-modal-content {
     max-width: 95vw;
     max-height: 95vh;
   }
-  
+
   .modal-media {
     max-height: 70vh;
   }
-  
+
   .modal-nav-btn {
     padding: 10px 12px;
     font-size: 16px;
   }
-  
+
   .close-image-modal {
     top: -40px;
     font-size: 20px;
@@ -1221,23 +1245,23 @@ footer {
   .images-grid {
     max-height: 250px;
   }
-  
+
   .images-grid.single .media-item {
     height: 200px;
   }
-  
+
   .images-grid.double .media-item {
     height: 125px;
   }
-  
+
   .images-grid.triple .media-item:first-child {
     height: 125px;
   }
-  
+
   .images-grid.triple .media-item:not(:first-child) {
     height: 60px;
   }
-  
+
   .images-grid.quad .media-item,
   .images-grid.multiple .media-item {
     height: 100px;

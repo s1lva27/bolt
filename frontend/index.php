@@ -34,7 +34,8 @@ function getPostImages($con, $postId)
 }
 
 if (!empty($_SESSION)) {
-    $userId = $_SESSION["id"];
+    $userId = $_SESSION["id"] ?? null;
+    $userType = $_SESSION["id_tipos_utilizador"] ?? null;
     $sqlPerfil = "SELECT * FROM perfis WHERE id_utilizador = $userId";
     $resultPerfil = mysqli_query($con, $sqlPerfil);
     $perfilData = mysqli_fetch_assoc($resultPerfil);
@@ -78,6 +79,10 @@ if (!empty($_SESSION)) {
             padding: 2px;
             font-size: 0.8rem;
             transition: color 0.2s ease;
+            margin-left: 10px;
+            /* Mantém o espaço entre o nome e o botão */
+            order: 2;
+            /* Garante que o botão fique sempre no final */
         }
 
         .comment-item .delete-comment-btn:hover {
@@ -284,6 +289,15 @@ if (!empty($_SESSION)) {
                 opacity: 1;
                 transform: translateY(0);
             }
+        }
+
+        .no-comments {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-style: italic;
+            border-top: 1px solid var(--border-light);
+            margin-top: 15px;
         }
     </style>
 </head>
@@ -587,7 +601,7 @@ if (!empty($_SESSION)) {
                                     data-publicacao-id="<?php echo $publicacaoId; ?>">
                                     <i class="fas fa-bookmark"></i>
                                 </button>
-                                <?php if ($_SESSION['id'] == $linha['id_utilizador'] || $_SESSION['id_tipos_utilizador'] == 2): ?>
+                                <?php if (isset($_SESSION['id']) && ($_SESSION['id'] == $linha['id_utilizador'] || ($_SESSION['id_tipos_utilizador'] ?? null) == 2)): ?>
                                     <button class="delete-btn" onclick="deletePost(<?php echo $publicacaoId; ?>, this)">
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -622,6 +636,29 @@ if (!empty($_SESSION)) {
     <script src="js/video-player.js"></script>
 
     <script>
+        document.getElementById('postForm').addEventListener('submit', function (e) {
+            const textarea = this.querySelector('textarea[name="conteudo"]');
+            const fileInputs = [
+                document.getElementById('media0'),
+                document.getElementById('media1'),
+                document.getElementById('media2'),
+                document.getElementById('media3'),
+                document.getElementById('media4')
+            ];
+
+            // Verifica se há pelo menos um arquivo selecionado
+            const hasFiles = fileInputs.some(input => input.files.length > 0);
+
+            // Se não há texto nem arquivos, impede o envio
+            if (!textarea.value.trim() && !hasFiles) {
+                e.preventDefault();
+                showToast('A publicação deve conter texto ou pelo menos uma imagem/vídeo');
+                return false;
+            }
+
+            return true;
+        });
+
         document.addEventListener('DOMContentLoaded', function () {
             // Inicializações aqui
             initializeVideoThumbnails();
@@ -898,13 +935,21 @@ if (!empty($_SESSION)) {
             }
         }
 
-        // Função para carregar comentários
         function loadComments(postId) {
             fetch(`../backend/get_comments.php?post_id=${postId}`)
                 .then(response => response.json())
                 .then(comments => {
                     const commentsList = document.getElementById('commentsList');
                     commentsList.innerHTML = '';
+
+                    // Adiciona mensagem quando não há comentários
+                    if (comments.length === 0) {
+                        const noCommentsMsg = document.createElement('div');
+                        noCommentsMsg.className = 'no-comments';
+                        noCommentsMsg.textContent = 'Ainda sem comentários. Seja o primeiro a comentar!';
+                        commentsList.appendChild(noCommentsMsg);
+                        return;
+                    }
 
                     comments.forEach(comment => {
                         const dataComentario = new Date(comment.data);
@@ -913,19 +958,25 @@ if (!empty($_SESSION)) {
                         const commentItem = document.createElement('div');
                         commentItem.className = 'comment-item';
                         commentItem.innerHTML = `
-                            <a href="perfil.php?id=${comment.utilizador_id}">
-                                <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
-                            </a>
-                            <div class="comment-content">
-                                <div class="comment-header">
-                                    <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
-                                        <span class="comment-username">${comment.nick}</span>
-                                    </a>
-                                    <span class="comment-time">${dataComentarioFormatada}</span>
-                                </div>
-                                <p class="comment-text">${comment.conteudo}</p>
+                    <a href="perfil.php?id=${comment.utilizador_id}">
+                        <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
+                    </a>
+                    <div class="comment-content">
+                        <div class="comment-header">
+                            <div class="comment-user-info">
+                                <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
+                                    <span class="comment-username">${comment.nick}</span>
+                                </a>
+                                <span class="comment-time">${dataComentarioFormatada}</span>
                             </div>
-                        `;
+                            ${(isset($_SESSION['id'])) && ($_SESSION['id'] == comment.utilizador_id || (isset($_SESSION['id_tipos_utilizador']) && $_SESSION['id_tipos_utilizador'] == 2)) ?
+                                `<button class="delete-comment-btn" onclick="deleteComment(${comment.id}, this)">
+        <i class="fas fa-trash"></i>
+    </button>` : ''}
+                        </div>
+                        <p class="comment-text">${comment.conteudo}</p>
+                    </div>
+                `;
                         commentsList.appendChild(commentItem);
                     });
                 });
@@ -1058,42 +1109,7 @@ if (!empty($_SESSION)) {
             });
         }
 
-        // Função para apagar comentário (modifique a função loadComments)
-        function loadComments(postId) {
-            fetch(`../backend/get_comments.php?post_id=${postId}`)
-                .then(response => response.json())
-                .then(comments => {
-                    const commentsList = document.getElementById('commentsList');
-                    commentsList.innerHTML = '';
 
-                    comments.forEach(comment => {
-                        const dataComentario = new Date(comment.data);
-                        const dataComentarioFormatada = `${dataComentario.getDate().toString().padStart(2, '0')}-${(dataComentario.getMonth() + 1).toString().padStart(2, '0')}-${dataComentario.getFullYear()} ${dataComentario.getHours().toString().padStart(2, '0')}:${dataComentario.getMinutes().toString().padStart(2, '0')}`;
-
-                        const commentItem = document.createElement('div');
-                        commentItem.className = 'comment-item';
-                        commentItem.innerHTML = `
-                    <a href="perfil.php?id=${comment.utilizador_id}">
-                        <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
-                    </a>
-                    <div class="comment-content">
-                        <div class="comment-header">
-                            <a href="perfil.php?id=${comment.utilizador_id}" class="profile-link">
-                                <span class="comment-username">${comment.nick}</span>
-                            </a>
-                            <span class="comment-time">${dataComentarioFormatada}</span>
-                            ${(<?php echo $_SESSION['id']; ?> == comment.utilizador_id || <?php echo $_SESSION['id_tipos_utilizador']; ?> == 2) ?
-                                `<button class="delete-comment-btn" onclick="deleteComment(${comment.id}, this)">
-                                    <i class="fas fa-trash"></i>
-                                </button>` : ''}
-                        </div>
-                        <p class="comment-text">${comment.conteudo}</p>
-                    </div>
-                `;
-                        commentsList.appendChild(commentItem);
-                    });
-                });
-        }
 
         // Função para apagar comentário com modal de confirmação
         function deleteComment(commentId, element) {

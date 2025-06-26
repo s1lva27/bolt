@@ -31,13 +31,48 @@ if ($post['id_utilizador'] != $userId && $userType != 2) {
     exit;
 }
 
-// "Apagar" a publicação (marcar como deletada em vez de remover fisicamente)
-$sql = "UPDATE publicacoes SET deletado_em = NOW() WHERE id_publicacao = $postId";
-$result = mysqli_query($con, $sql);
+// Iniciar transação para garantir que todas as operações sejam concluídas com sucesso
+mysqli_begin_transaction($con);
 
-if ($result) {
+try {
+    // 1. Apagar os comentários associados à publicação
+    $sql = "DELETE FROM comentarios WHERE id_publicacao = $postId";
+    mysqli_query($con, $sql);
+    
+    // 2. Apagar os likes associados à publicação
+    $sql = "DELETE FROM publicacao_likes WHERE publicacao_id = $postId";
+    mysqli_query($con, $sql);
+    
+    // 3. Apagar as publicações salvas associadas à publicação
+    $sql = "DELETE FROM publicacao_salvas WHERE publicacao_id = $postId";
+    mysqli_query($con, $sql);
+    
+    // 4. Apagar as mídias associadas à publicação (e os arquivos físicos se necessário)
+    $sql = "SELECT url FROM publicacao_medias WHERE publicacao_id = $postId";
+    $result = mysqli_query($con, $sql);
+    $medias = mysqli_fetch_all($result, MYSQLI_ASSOC);
+    
+    foreach ($medias as $media) {
+        $filePath = "../images/publicacoes/" . $media['url'];
+        if (file_exists($filePath)) {
+            unlink($filePath); // Remove o arquivo físico
+        }
+    }
+    
+    $sql = "DELETE FROM publicacao_medias WHERE publicacao_id = $postId";
+    mysqli_query($con, $sql);
+    
+    // 5. Finalmente, apagar a publicação
+    $sql = "DELETE FROM publicacoes WHERE id_publicacao = $postId";
+    mysqli_query($con, $sql);
+    
+    // Confirmar todas as operações
+    mysqli_commit($con);
+    
     echo json_encode(['success' => true]);
-} else {
-    echo json_encode(['success' => false, 'message' => 'Erro ao apagar publicação']);
+} catch (Exception $e) {
+    // Em caso de erro, reverter todas as operações
+    mysqli_rollback($con);
+    echo json_encode(['success' => false, 'message' => 'Erro ao apagar publicação: ' . $e->getMessage()]);
 }
 ?>
