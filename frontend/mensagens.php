@@ -94,6 +94,21 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             opacity: 0.7;
         }
 
+        .message.new-message {
+            animation: slideInMessage 0.3s ease-out;
+        }
+
+        @keyframes slideInMessage {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         .messages-container {
             scroll-behavior: smooth;
             min-height: 200px;
@@ -211,6 +226,37 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             contain: layout style paint;
             will-change: scroll-position;
         }
+
+        /* Indicador de mensagem sendo enviada */
+        .message-sending {
+            opacity: 0.7;
+            position: relative;
+        }
+
+        .message-sending::after {
+            content: '';
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            border: 2px solid var(--color-primary);
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Status de entrega */
+        .message-status {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .message-status.delivered {
+            color: var(--color-primary);
+        }
     </style>
 </head>
 
@@ -314,18 +360,54 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             currentConversationId: null,
             currentOtherUserId: null,
             messagePolling: null,
-            lastMessageCount: 0,
+            conversationPolling: null,
+            lastMessageId: 0,
+            lastConversationUpdate: null,
             isTyping: false,
             typingTimeout: null,
             connectionStatus: 'online',
             messagesCache: new Map(),
             isLoadingMessages: false,
-            updatingConversations: false
+            updatingConversations: false,
+            currentUserId: <?php echo $currentUserId; ?>,
+            pendingMessages: new Map() // Para rastrear mensagens sendo enviadas
         };
 
         document.addEventListener('DOMContentLoaded', function () {
-            updateConversationsList();
+            // Iniciar polling das conversas
+            startConversationPolling();
+            checkConnection();
         });
+
+        // Sistema de polling em tempo real para conversas
+        function startConversationPolling() {
+            if (AppState.conversationPolling) {
+                clearInterval(AppState.conversationPolling);
+            }
+
+            // Atualizar conversas a cada 3 segundos
+            AppState.conversationPolling = setInterval(() => {
+                if (document.visibilityState === 'visible' && !AppState.updatingConversations) {
+                    updateConversationsList();
+                }
+            }, 3000);
+        }
+
+        // Sistema de polling em tempo real para mensagens
+        function startMessagePolling() {
+            if (AppState.messagePolling) {
+                clearInterval(AppState.messagePolling);
+            }
+
+            // Verificar novas mensagens a cada 1 segundo
+            AppState.messagePolling = setInterval(() => {
+                if (document.visibilityState === 'visible' && 
+                    AppState.currentConversationId && 
+                    !AppState.isLoadingMessages) {
+                    loadNewMessages();
+                }
+            }, 1000);
+        }
 
         // Verificar conexão
         function checkConnection() {
@@ -338,12 +420,22 @@ $resultConversas = mysqli_query($con, $sqlConversas);
                     statusEl.innerHTML = '<i class="fas fa-wifi"></i> Conectado';
                     statusEl.style.display = 'block';
                     setTimeout(() => statusEl.style.display = 'none', 2000);
+                    
+                    // Retomar polling quando voltar online
+                    startConversationPolling();
+                    if (AppState.currentConversationId) {
+                        startMessagePolling();
+                    }
                 }
             } else {
                 AppState.connectionStatus = 'offline';
                 statusEl.className = 'connection-status offline';
                 statusEl.innerHTML = '<i class="fas fa-wifi-slash"></i> Sem conexão';
                 statusEl.style.display = 'block';
+                
+                // Parar polling quando offline
+                if (AppState.messagePolling) clearInterval(AppState.messagePolling);
+                if (AppState.conversationPolling) clearInterval(AppState.conversationPolling);
             }
         }
 
@@ -356,10 +448,15 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             // Se já está na mesma conversa, não fazer nada
             if (AppState.currentConversationId === conversationId) return;
 
+            // Parar polling anterior
+            if (AppState.messagePolling) {
+                clearInterval(AppState.messagePolling);
+            }
+
             // Atualizar o estado da aplicação
             AppState.currentConversationId = conversationId;
             AppState.currentOtherUserId = otherUserId;
-            AppState.lastMessageCount = 0;
+            AppState.lastMessageId = 0;
 
             // Marcar conversa como ativa na UI
             document.querySelectorAll('.conversation-item').forEach(item => {
@@ -377,23 +474,103 @@ $resultConversas = mysqli_query($con, $sqlConversas);
                 </div>
             `;
 
-            // Parar qualquer polling anterior
-            if (AppState.messagePolling) {
-                clearInterval(AppState.messagePolling);
-            }
-
             // Carregar as mensagens imediatamente
             loadMessages(true);
 
-            // Iniciar polling para atualizações periódicas
-            AppState.messagePolling = setInterval(() => {
-                if (document.visibilityState === 'visible' && !AppState.isLoadingMessages) {
-                    loadMessages(false);
-                }
-            }, 3000);
+            // Iniciar polling para novas mensagens
+            startMessagePolling();
 
             // Marcar mensagens como lidas
             markMessagesAsRead(conversationId);
+        }
+
+        function loadMessages(scrollToBottom = true) {
+            if (!AppState.currentConversationId || AppState.isLoadingMessages) return;
+
+            AppState.isLoadingMessages = true;
+
+            fetch(`../backend/get_messages.php?conversation_id=${AppState.currentConversationId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Erro na resposta do servidor');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        displayMessages(data.messages, data.other_user, scrollToBottom);
+                        
+                        // Atualizar último ID de mensagem
+                        if (data.messages.length > 0) {
+                            AppState.lastMessageId = Math.max(...data.messages.map(m => parseInt(m.id)));
+                        }
+                    } else {
+                        throw new Error(data.message || 'Erro ao carregar mensagens');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    const chatArea = document.getElementById('chatArea');
+                    chatArea.innerHTML = `
+                        <div class="error-loading">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <p>Erro ao carregar mensagens</p>
+                            <button onclick="loadMessages(true)">Tentar novamente</button>
+                        </div>
+                    `;
+                })
+                .finally(() => {
+                    AppState.isLoadingMessages = false;
+                });
+        }
+
+        // Nova função para carregar apenas mensagens novas
+        function loadNewMessages() {
+            if (!AppState.currentConversationId || AppState.isLoadingMessages) return;
+
+            fetch(`../backend/get_messages.php?conversation_id=${AppState.currentConversationId}&after_id=${AppState.lastMessageId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.messages.length > 0) {
+                        const messagesContainer = document.getElementById('messagesContainer');
+                        if (!messagesContainer) return;
+
+                        const wasScrolledToBottom = isScrolledToBottom(messagesContainer);
+                        
+                        // Adicionar novas mensagens
+                        data.messages.forEach(message => {
+                            const messageElement = createMessageElement(message);
+                            messageElement.classList.add('new-message');
+                            messagesContainer.appendChild(messageElement);
+                            
+                            // Atualizar último ID
+                            AppState.lastMessageId = Math.max(AppState.lastMessageId, parseInt(message.id));
+                        });
+
+                        // Scroll automático se estava no final
+                        if (wasScrolledToBottom) {
+                            scrollToBottomSmooth();
+                        }
+
+                        // Marcar como lidas se necessário
+                        markMessagesAsRead(AppState.currentConversationId);
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar novas mensagens:', error);
+                });
+        }
+
+        function createMessageElement(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${message.remetente_id == AppState.currentUserId ? 'sent' : 'received'}`;
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    <p>${escapeHtml(message.conteudo)}</p>
+                    <span class="message-time">${formatTime(message.data_envio)}</span>
+                </div>
+            `;
+            return messageDiv;
         }
 
         function markMessagesAsRead(conversationId) {
@@ -438,41 +615,6 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             }
         }
 
-        function loadMessages(scrollToBottom = true) {
-            if (!AppState.currentConversationId || AppState.isLoadingMessages) return;
-
-            AppState.isLoadingMessages = true;
-
-            fetch(`../backend/get_messages.php?conversation_id=${AppState.currentConversationId}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Erro na resposta do servidor');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        displayMessages(data.messages, data.other_user, scrollToBottom);
-                    } else {
-                        throw new Error(data.message || 'Erro ao carregar mensagens');
-                    }
-                })
-                .catch(error => {
-                    console.error('Erro:', error);
-                    const chatArea = document.getElementById('chatArea');
-                    chatArea.innerHTML = `
-                        <div class="error-loading">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <p>Erro ao carregar mensagens</p>
-                            <button onclick="loadMessages(true)">Tentar novamente</button>
-                        </div>
-                    `;
-                })
-                .finally(() => {
-                    AppState.isLoadingMessages = false;
-                });
-        }
-
         function displayMessages(messages, otherUser, scrollToBottom = true) {
             const chatArea = document.getElementById('chatArea');
 
@@ -514,7 +656,7 @@ $resultConversas = mysqli_query($con, $sqlConversas);
 
         function generateMessagesHTML(messages) {
             return messages.map(message => `
-                <div class="message ${message.remetente_id == <?php echo $currentUserId; ?> ? 'sent' : 'received'}">
+                <div class="message ${message.remetente_id == AppState.currentUserId ? 'sent' : 'received'}">
                     <div class="message-content">
                         <p>${escapeHtml(message.conteudo)}</p>
                         <span class="message-time">${formatTime(message.data_envio)}</span>
@@ -548,12 +690,16 @@ $resultConversas = mysqli_query($con, $sqlConversas);
 
             if (!content || !AppState.currentConversationId) return;
 
-            // Limpar input imediatamente para melhor UX
+            // Gerar ID temporário para a mensagem
+            const tempId = 'temp_' + Date.now();
+            
+            // Limpar input imediatamente
             messageInput.value = '';
 
-            // Adicionar mensagem temporária para feedback imediato
-            addTemporaryMessage(content);
+            // Adicionar mensagem temporária com indicador de envio
+            addTemporaryMessage(content, tempId);
 
+            // Enviar mensagem
             fetch('../backend/send_message.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -561,32 +707,33 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             })
                 .then(response => response.json())
                 .then(data => {
+                    // Remover mensagem temporária
+                    removeTemporaryMessage(tempId);
+                    
                     if (data.success) {
-                        // Limpar cache para forçar reload das mensagens
-                        AppState.messagesCache.delete(`conv_${AppState.currentConversationId}`);
-                        loadMessages(true);
+                        // A nova mensagem será carregada automaticamente pelo polling
+                        // Atualizar lista de conversas
                         updateConversationsList();
                     } else {
-                        // Se falhou, restaurar o texto e remover mensagem temporária
+                        // Se falhou, restaurar o texto
                         messageInput.value = content;
-                        removeTemporaryMessage();
-                        alert('Erro ao enviar mensagem. Tente novamente.');
+                        showErrorMessage('Erro ao enviar mensagem. Tente novamente.');
                     }
                 })
                 .catch(error => {
                     console.error('Erro ao enviar mensagem:', error);
+                    removeTemporaryMessage(tempId);
                     messageInput.value = content;
-                    removeTemporaryMessage();
-                    alert('Erro ao enviar mensagem. Verifique sua conexão.');
+                    showErrorMessage('Erro ao enviar mensagem. Verifique sua conexão.');
                 });
         }
 
-        function addTemporaryMessage(content) {
+        function addTemporaryMessage(content, tempId) {
             const messagesContainer = document.getElementById('messagesContainer');
             if (messagesContainer) {
                 const tempMessage = document.createElement('div');
-                tempMessage.className = 'message sent loading';
-                tempMessage.id = 'temp-message';
+                tempMessage.className = 'message sent message-sending';
+                tempMessage.id = tempId;
                 tempMessage.innerHTML = `
                     <div class="message-content">
                         <p>${escapeHtml(content)}</p>
@@ -598,11 +745,16 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             }
         }
 
-        function removeTemporaryMessage() {
-            const tempMessage = document.getElementById('temp-message');
+        function removeTemporaryMessage(tempId) {
+            const tempMessage = document.getElementById(tempId);
             if (tempMessage) {
                 tempMessage.remove();
             }
+        }
+
+        function showErrorMessage(message) {
+            // Implementar notificação de erro
+            console.error(message);
         }
 
         function openNewMessageModal() {
@@ -662,36 +814,13 @@ $resultConversas = mysqli_query($con, $sqlConversas);
                     if (data.success) {
                         closeNewMessageModal();
 
-                        // Adiciona a nova conversa diretamente à lista sem recarregar
-                        const conversationsList = document.getElementById('conversationsList');
+                        // Atualizar lista de conversas
+                        updateConversationsList();
 
-                        // Remove a mensagem "Nenhuma conversa" se existir
-                        const noConversations = conversationsList.querySelector('.no-conversations');
-                        if (noConversations) {
-                            noConversations.remove();
-                        }
-
-                        // Cria o HTML para a nova conversa
-                        const conversationHtml = `
-                            <div class="conversation-item active" data-conversation-id="${data.conversation_id}" 
-                                 onclick="openConversation(${data.conversation_id}, ${data.other_user.id})">
-                                <img src="images/perfil/default-profile.jpg" 
-                                     alt="${data.other_user.nome}" class="conversation-avatar">
-                                <div class="conversation-info">
-                                    <div class="conversation-header">
-                                        <h4>${data.other_user.nome}</h4>
-                                        <span class="conversation-time">Agora</span>
-                                    </div>
-                                    <p class="last-message">Iniciar conversa...</p>
-                                </div>
-                            </div>
-                        `;
-
-                        // Insere no início da lista
-                        conversationsList.insertAdjacentHTML('afterbegin', conversationHtml);
-
-                        // Abre a conversa
-                        openConversation(data.conversation_id, data.other_user.id);
+                        // Abrir a conversa após um pequeno delay
+                        setTimeout(() => {
+                            openConversation(data.conversation_id, data.other_user.id);
+                        }, 500);
                     } else {
                         alert(data.message || 'Erro ao criar conversa');
                     }
@@ -712,8 +841,6 @@ $resultConversas = mysqli_query($con, $sqlConversas);
                 .then(data => {
                     if (data.success) {
                         const conversationsList = document.getElementById('conversationsList');
-
-                        // Verificar se houve mudanças antes de atualizar o DOM
                         const currentHTML = conversationsList.innerHTML;
                         let newHTML = '';
 
@@ -731,8 +858,9 @@ $resultConversas = mysqli_query($con, $sqlConversas);
                         } else {
                             newHTML = data.conversations.map(conversation => {
                                 const otherUser = conversation.other_user;
+                                const isActive = AppState.currentConversationId == conversation.id ? 'active' : '';
                                 return `
-                                    <div class="conversation-item" data-conversation-id="${conversation.id}" onclick="openConversation(${conversation.id}, ${otherUser.id})">
+                                    <div class="conversation-item ${isActive}" data-conversation-id="${conversation.id}" onclick="openConversation(${conversation.id}, ${otherUser.id})">
                                         <img src="images/perfil/${otherUser.foto || 'default-profile.jpg'}" 
                                              alt="${otherUser.nome}" class="conversation-avatar">
                                         <div class="conversation-info">
@@ -757,14 +885,6 @@ $resultConversas = mysqli_query($con, $sqlConversas);
                         // Só atualizar o DOM se o conteúdo mudou
                         if (currentHTML !== newHTML) {
                             conversationsList.innerHTML = newHTML;
-
-                            // Manter a conversa ativa selecionada
-                            if (AppState.currentConversationId) {
-                                const activeItem = document.querySelector(`[data-conversation-id="${AppState.currentConversationId}"]`);
-                                if (activeItem) {
-                                    activeItem.classList.add('active');
-                                }
-                            }
                         }
                     }
                 })
@@ -798,24 +918,22 @@ $resultConversas = mysqli_query($con, $sqlConversas);
         // Cleanup ao sair da página
         window.addEventListener('beforeunload', function () {
             if (AppState.messagePolling) clearInterval(AppState.messagePolling);
+            if (AppState.conversationPolling) clearInterval(AppState.conversationPolling);
         });
 
         // Pausar polling quando a página não está visível
         document.addEventListener('visibilitychange', function () {
             if (document.visibilityState === 'hidden') {
                 if (AppState.messagePolling) clearInterval(AppState.messagePolling);
-            } else if (AppState.currentConversationId) {
+                if (AppState.conversationPolling) clearInterval(AppState.conversationPolling);
+            } else {
                 // Retomar polling quando voltar à página
-                AppState.messagePolling = setInterval(() => {
-                    if (!AppState.isLoadingMessages) {
-                        loadMessages(false);
-                    }
-                }, 3000);
+                startConversationPolling();
+                if (AppState.currentConversationId) {
+                    startMessagePolling();
+                }
             }
         });
-
-        // Inicializar verificação de conexão
-        checkConnection();
 
         // Debounce para pesquisa
         let searchTimeout;

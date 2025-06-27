@@ -10,7 +10,7 @@ if ($currentUserId) {
                   WHERE (c.utilizador1_id = ? OR c.utilizador2_id = ?)
                   AND m.remetente_id != ?
                   AND m.lida = 0";
-    
+
     $stmt = $con->prepare($sqlUnread);
     $stmt->bind_param("iii", $currentUserId, $currentUserId, $currentUserId);
     $stmt->execute();
@@ -59,7 +59,7 @@ if ($currentUserId) {
         if (!badge) return;
 
         const currentCount = parseInt(badge.textContent) || 0;
-        
+
         // Só atualizar se mudou
         if (currentCount !== newCount) {
             badge.textContent = newCount;
@@ -141,24 +141,36 @@ if ($currentUserId) {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #ff4444, #ff0000);
+        background-color: var(--color-primary);
+        /* Cor laranja da Orange */
         color: white;
-        border-radius: 12px;
-        min-width: 22px;
-        height: 22px;
-        padding: 0 6px;
-        font-size: 11px;
-        font-weight: bold;
-        margin-left: 8px;
-        box-shadow: 0 3px 8px rgba(255, 0, 0, 0.3);
+        border-radius: 10px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        font-size: 10px;
+        font-weight: 600;
+        margin-left: 6px;
         position: relative;
-        top: -2px;
-        transform-origin: center;
+        top: -1px;
+        scale: 1.2;
     }
 
     /* Animação de flutuação contínua */
     .animate-float {
-        animation: float 3s ease-in-out infinite;
+        animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+
+        0%,
+        100% {
+            transform: translateY(0);
+        }
+
+        50% {
+            transform: translateY(-2px);
+        }
     }
 
     /* Animação quando aparece */
@@ -166,23 +178,18 @@ if ($currentUserId) {
         animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
-    @keyframes float {
-        0%, 100% {
-            transform: translateY(0);
-        }
-        50% {
-            transform: translateY(-3px);
-        }
+    .animate-pop {
+        animation: pop-in 0.3s ease-out;
     }
+
+
 
     @keyframes pop-in {
         0% {
-            transform: scale(0);
+            transform: scale(0.8);
             opacity: 0;
         }
-        80% {
-            transform: scale(1.1);
-        }
+
         100% {
             transform: scale(1);
             opacity: 1;
@@ -191,18 +198,19 @@ if ($currentUserId) {
 
     /* Efeito hover pulsante */
     .notification-badge:hover {
-        animation: pulse 1s ease infinite;
+        opacity: 0.9;
+        transform: scale(1.05);
+        transition: all 0.2s ease;
     }
 
     @keyframes pulse {
-        0% {
-            transform: scale(1);
-            box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.4);
-        }
+        
+
         70% {
             transform: scale(1.1);
             box-shadow: 0 0 0 8px rgba(255, 0, 0, 0);
         }
+
         100% {
             transform: scale(1);
             box-shadow: 0 0 0 0 rgba(255, 0, 0, 0);
@@ -224,29 +232,30 @@ if ($currentUserId) {
     }
 
     @keyframes blink {
-        0%, 100% {
+
+        0%,
+        100% {
             opacity: 0.8;
             transform: scale(1);
         }
+
         50% {
             opacity: 0;
             transform: scale(0.5);
         }
     }
 
-    .notification-badge {
-        background: linear-gradient(135deg, #ff4444, #ff0000);
-        background-size: 200% 200%;
-        animation: gradient-shift 4s ease infinite;
-    }
+    
 
     @keyframes gradient-shift {
         0% {
             background-position: 0% 50%;
         }
+
         50% {
             background-position: 100% 50%;
         }
+
         100% {
             background-position: 0% 50%;
         }
