@@ -49,7 +49,8 @@ if ($currentUserId) {
                 </a></li>
             <li><a href="notificacoes.php"><i class="fas fa-bell"></i> <span>Notificações</span>
                     <?php if ($totalNotifications > 0): ?>
-                        <span id="notifications-count-badge" class="notification-badge animate-float"><?= $totalNotifications ?></span>
+                        <span id="notifications-count-badge"
+                            class="notification-badge animate-float"><?= $totalNotifications ?></span>
                     <?php else: ?>
                         <span id="notifications-count-badge" class="notification-badge" style="display:none;">0</span>
                     <?php endif; ?>
@@ -100,6 +101,19 @@ if ($currentUserId) {
             }, 300);
         }
     }
+
+    // Ouvir eventos de atualização de notificações
+    document.addEventListener('notificationsUpdated', function (e) {
+        updateNotificationsCount(e.detail.newCount);
+    });
+
+    // Sincronização entre abas para notificações
+    window.addEventListener('storage', function (e) {
+        if (e.key === 'notificationsCountUpdate') {
+            const data = JSON.parse(e.newValue);
+            updateNotificationsCount(data.newCount);
+        }
+    });
 
     // Função para atualizar o contador de notificações
     function updateNotificationsCount(newCount) {
@@ -270,7 +284,7 @@ if ($currentUserId) {
     }
 
     @keyframes pulse {
-        
+
 
         70% {
             transform: scale(1.1);
@@ -311,7 +325,7 @@ if ($currentUserId) {
         }
     }
 
-    
+
 
     @keyframes gradient-shift {
         0% {

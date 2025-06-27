@@ -362,10 +362,6 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                     <h2>Notificações</h2>
                     <span id="unread-count" class="notification-type like" style="display: none;">0 não lidas</span>
                 </div>
-                <button id="mark-all-read" class="mark-all-read-btn" disabled>
-                    <i class="fas fa-check-double"></i>
-                    Marcar todas como lidas
-                </button>
             </div>
 
             <div class="notifications-list" id="notifications-list">

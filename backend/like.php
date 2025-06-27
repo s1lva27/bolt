@@ -1,6 +1,7 @@
 <?php
 session_start();
 require "ligabd.php";
+require "create_notification.php";
 
 if (!isset($_SESSION["id"])) {
     die("Acesso negado.");
@@ -9,6 +10,21 @@ if (!isset($_SESSION["id"])) {
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["id_publicacao"])) {
     $userId = $_SESSION["id"];
     $publicacaoId = intval($_POST["id_publicacao"]);
+    
+    // Buscar o dono da publicação
+    $sqlOwner = "SELECT id_utilizador FROM publicacoes WHERE id_publicacao = ?";
+    $stmtOwner = $con->prepare($sqlOwner);
+    $stmtOwner->bind_param("i", $publicacaoId);
+    $stmtOwner->execute();
+    $ownerResult = $stmtOwner->get_result();
+    $owner = $ownerResult->fetch_assoc();
+    
+    if (!$owner) {
+        echo "error";
+        exit;
+    }
+    
+    $ownerId = $owner['id_utilizador'];
     
     // Verificar se o usuário já deu like nesta publicação
     $checkSql = "SELECT * FROM publicacao_likes WHERE publicacao_id = ? AND utilizador_id = ?";
@@ -29,6 +45,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["id_publicacao"])) {
             $stmtUpdate = $con->prepare($updateSql);
             $stmtUpdate->bind_param("i", $publicacaoId);
             $stmtUpdate->execute();
+            
+            // Remover notificação de like se existir
+            $deleteNotifSql = "DELETE FROM notificacoes 
+                              WHERE utilizador_id = ? AND remetente_id = ? 
+                              AND tipo = 'like' AND publicacao_id = ?";
+            $stmtDeleteNotif = $con->prepare($deleteNotifSql);
+            $stmtDeleteNotif->bind_param("iii", $ownerId, $userId, $publicacaoId);
+            $stmtDeleteNotif->execute();
+            
             echo "unliked";
         } else {
             echo "error";
@@ -45,6 +70,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["id_publicacao"])) {
             $stmtUpdate = $con->prepare($updateSql);
             $stmtUpdate->bind_param("i", $publicacaoId);
             $stmtUpdate->execute();
+            
+            // Criar notificação
+            createNotification($con, $ownerId, $userId, 'like', $publicacaoId);
+            
             echo "liked";
         } else {
             echo "error";

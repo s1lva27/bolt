@@ -10,6 +10,7 @@ if (!isset($_SESSION['id']) || empty($_SESSION['id'])) {
     echo json_encode(['success' => false, 'message' => 'Sessão inválida ou expirada']);
     exit;
 }
+
 // Verificar conexão com o banco
 if ($con->connect_error) {
     http_response_code(500);
