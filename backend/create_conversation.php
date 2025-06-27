@@ -17,7 +17,21 @@ if (!isset($_POST['other_user_id'])) {
 $currentUserId = $_SESSION['id'];
 $otherUserId = intval($_POST['other_user_id']);
 
-// Verificar se já existe uma conversa entre os dois utilizadores
+// Verificar se o outro utilizador existe
+$sqlCheckUser = "SELECT id, nick, nome_completo FROM utilizadores WHERE id = ?";
+$stmtCheckUser = $con->prepare($sqlCheckUser);
+$stmtCheckUser->bind_param("i", $otherUserId);
+$stmtCheckUser->execute();
+$userResult = $stmtCheckUser->get_result();
+
+if ($userResult->num_rows === 0) {
+    echo json_encode(['success' => false, 'message' => 'Utilizador não encontrado']);
+    exit;
+}
+
+$otherUser = $userResult->fetch_assoc();
+
+// Verificar se já existe conversa
 $sqlCheck = "SELECT id FROM conversas 
              WHERE (utilizador1_id = ? AND utilizador2_id = ?) 
              OR (utilizador1_id = ? AND utilizador2_id = ?)";
@@ -27,9 +41,16 @@ $stmtCheck->execute();
 $result = $stmtCheck->get_result();
 
 if ($result->num_rows > 0) {
-    // Conversa já existe
     $conversation = $result->fetch_assoc();
-    echo json_encode(['success' => true, 'conversation_id' => $conversation['id']]);
+    echo json_encode([
+        'success' => true, 
+        'conversation_id' => $conversation['id'],
+        'other_user' => [
+            'id' => $otherUser['id'],
+            'nick' => $otherUser['nick'],
+            'nome' => $otherUser['nome_completo']
+        ]
+    ]);
 } else {
     // Criar nova conversa
     $sqlCreate = "INSERT INTO conversas (utilizador1_id, utilizador2_id) VALUES (?, ?)";
@@ -38,7 +59,15 @@ if ($result->num_rows > 0) {
     
     if ($stmtCreate->execute()) {
         $conversationId = $con->insert_id;
-        echo json_encode(['success' => true, 'conversation_id' => $conversationId]);
+        echo json_encode([
+            'success' => true, 
+            'conversation_id' => $conversationId,
+            'other_user' => [
+                'id' => $otherUser['id'],
+                'nick' => $otherUser['nick'],
+                'nome' => $otherUser['nome_completo']
+            ]
+        ]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Erro ao criar conversa']);
     }
