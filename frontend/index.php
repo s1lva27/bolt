@@ -923,13 +923,17 @@ if (!empty($_SESSION)) {
 
         function loadComments(postId) {
             fetch(`../backend/get_comments.php?post_id=${postId}`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
                 .then(comments => {
                     const commentsList = document.getElementById('commentsList');
                     commentsList.innerHTML = '';
 
-                    // Adiciona mensagem quando não há comentários
-                    if (comments.length === 0) {
+                    if (!comments || comments.length === 0) {
                         const noCommentsMsg = document.createElement('div');
                         noCommentsMsg.className = 'no-comments';
                         noCommentsMsg.textContent = 'Ainda sem comentários. Seja o primeiro a comentar!';
@@ -943,6 +947,12 @@ if (!empty($_SESSION)) {
 
                         const commentItem = document.createElement('div');
                         commentItem.className = 'comment-item';
+
+                        // Verifica se o usuário logado pode apagar o comentário
+                        const canDelete = <?php echo isset($_SESSION['id']) ? 'true' : 'false'; ?> &&
+                            (<?php echo isset($_SESSION['id']) ? $_SESSION['id'] : '0'; ?> == comment.utilizador_id ||
+                                <?php echo isset($_SESSION['id_tipos_utilizador']) && $_SESSION['id_tipos_utilizador'] == 2 ? 'true' : 'false'; ?>);
+
                         commentItem.innerHTML = `
                     <a href="perfil.php?id=${comment.utilizador_id}">
                         <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
@@ -955,16 +965,22 @@ if (!empty($_SESSION)) {
                                 </a>
                                 <span class="comment-time">${dataComentarioFormatada}</span>
                             </div>
-                            ${(isset($_SESSION['id'])) && ($_SESSION['id'] == comment.utilizador_id || (isset($_SESSION['id_tipos_utilizador']) && $_SESSION['id_tipos_utilizador'] == 2)) ?
-                                `<button class="delete-comment-btn" onclick="deleteComment(${comment.id}, this)">
-        <i class="fas fa-trash"></i>
-    </button>` : ''}
+                            ${canDelete ? `
+                                <button class="delete-comment-btn" onclick="deleteComment(${comment.id}, this)">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            ` : ''}
                         </div>
                         <p class="comment-text">${comment.conteudo}</p>
                     </div>
                 `;
                         commentsList.appendChild(commentItem);
                     });
+                })
+                .catch(error => {
+                    console.error('Error loading comments:', error);
+                    const commentsList = document.getElementById('commentsList');
+                    commentsList.innerHTML = '<div class="no-comments">Erro ao carregar comentários</div>';
                 });
         }
 

@@ -159,7 +159,7 @@ if ($currentUserId) {
 
     // Função para verificar notificações não lidas
     function checkUnreadNotifications() {
-        fetch('../backend/get_notifications.php?limit=1')
+        fetch('../backend/get_unread_notifications_count.php')
             .then(response => response.json())
             .then(data => {
                 if (data.success) {

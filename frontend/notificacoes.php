@@ -61,29 +61,6 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
             color: var(--text-light);
         }
 
-        .mark-all-read-btn {
-            background: var(--color-primary);
-            color: white;
-            border: none;
-            padding: var(--space-sm) var(--space-md);
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            transition: background var(--transition-normal);
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: var(--space-xs);
-        }
-
-        .mark-all-read-btn:hover {
-            background: var(--color-primary-dark);
-        }
-
-        .mark-all-read-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
         .notifications-list {
             background: var(--bg-card);
             border-radius: var(--radius-lg);
@@ -109,22 +86,6 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
 
         .notification-item:hover {
             background: var(--bg-hover);
-        }
-
-        .notification-item.unread {
-            background: rgba(255, 87, 34, 0.05);
-            border-left: 3px solid var(--color-primary);
-        }
-
-        .notification-item.unread::before {
-            content: '';
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 8px;
-            height: 8px;
-            background: var(--color-primary);
-            border-radius: 50%;
         }
 
         .notification-avatar {
@@ -360,7 +321,6 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                 <div class="notifications-header-left">
                     <i class="fas fa-bell"></i>
                     <h2>Notificações</h2>
-                    <span id="unread-count" class="notification-type like" style="display: none;">0 não lidas</span>
                 </div>
             </div>
 
@@ -391,16 +351,12 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
 
         document.addEventListener('DOMContentLoaded', function () {
             loadNotifications();
-
-            // Event listener para marcar todas como lidas
-            document.getElementById('mark-all-read').addEventListener('click', markAllAsRead);
         });
 
         function loadNotifications(append = false) {
             if (loading) return;
             loading = true;
 
-            // Mostrar loader
             if (!append) {
                 const container = document.getElementById('notifications-list');
                 container.innerHTML = `
@@ -414,18 +370,16 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
             const url = `../backend/get_notifications.php?limit=${limit}&offset=${currentOffset}`;
 
             fetch(url, {
-                credentials: 'same-origin' // Importante para enviar a sessão
+                credentials: 'same-origin'
             })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Erro na rede');
-                    }
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
                     if (data.success) {
                         displayNotifications(data.notifications, append);
-                        updateUnreadCount(data.unread_count);
+
+                        // Atualizar o contador na sidebar com o valor ANTES de marcar como lidas
+                        // Se for o primeiro carregamento (offset == 0), atualizar para 0
+                        updateSidebarNotificationCount(currentOffset === 0 ? 0 : data.unread_count);
 
                         hasMore = data.notifications.length >= limit;
                         currentOffset += data.notifications.length;
@@ -440,6 +394,35 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                 .finally(() => {
                     loading = false;
                 });
+        }
+
+        function updateSidebarNotificationCount(newCount) {
+            // Disparar evento para atualizar a sidebar
+            const event = new CustomEvent('notificationsUpdated', {
+                detail: { newCount: newCount }
+            });
+            document.dispatchEvent(event);
+
+            // Atualizar outras abas
+            localStorage.setItem('notificationsCountUpdate', JSON.stringify({
+                newCount: newCount,
+                timestamp: Date.now()
+            }));
+        }
+
+        // Nova função para atualizar a sidebar
+        function updateSidebarNotificationCount(newCount) {
+            // Disparar evento para atualizar a sidebar
+            const event = new CustomEvent('notificationsUpdated', {
+                detail: { newCount: newCount }
+            });
+            document.dispatchEvent(event);
+
+            // Atualizar outras abas
+            localStorage.setItem('notificationsCountUpdate', JSON.stringify({
+                newCount: newCount,
+                timestamp: Date.now()
+            }));
         }
 
         function displayNotifications(notifications, append = false) {
@@ -480,7 +463,7 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
 
         function createNotificationElement(notification) {
             const div = document.createElement('div');
-            div.className = `notification-item ${notification.lida == 0 ? 'unread' : ''}`;
+            div.className = 'notification-item';
 
             const timeAgo = getTimeAgo(notification.data_criacao);
             const typeIcon = getTypeIcon(notification.tipo);
@@ -561,62 +544,6 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
             } else {
                 return date.toLocaleDateString('pt-PT');
             }
-        }
-
-        function updateUnreadCount(count) {
-            const unreadElement = document.getElementById('unread-count');
-            const markAllBtn = document.getElementById('mark-all-read');
-
-            if (count > 0) {
-                unreadElement.textContent = `${count} não lidas`;
-                unreadElement.style.display = 'block';
-                markAllBtn.disabled = false;
-            } else {
-                unreadElement.style.display = 'none';
-                markAllBtn.disabled = true;
-            }
-        }
-
-        function markAllAsRead() {
-            fetch('../backend/mark_notifications_read.php', {
-                method: 'POST'
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Remover classe 'unread' de todas as notificações
-                        document.querySelectorAll('.notification-item.unread').forEach(item => {
-                            item.classList.remove('unread');
-                        });
-
-                        updateUnreadCount(0);
-                        showToast('Todas as notificações foram marcadas como lidas');
-                    } else {
-                        showError('Erro ao marcar notificações como lidas');
-                    }
-                })
-                .catch(error => {
-                    console.error('Erro:', error);
-                    showError('Erro de conexão');
-                });
-        }
-
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            const toastMessage = document.getElementById('toast-message');
-            toastMessage.textContent = message;
-
-            toast.style.display = 'flex';
-            setTimeout(() => {
-                toast.classList.add('show');
-            }, 10);
-
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => {
-                    toast.style.display = 'none';
-                }, 300);
-            }, 3000);
         }
 
         function showError(message) {
