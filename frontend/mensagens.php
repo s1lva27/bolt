@@ -40,10 +40,114 @@ $resultConversas = mysqli_query($con, $sqlConversas);
     <link rel="icon" type="image/x-icon" href="images/favicon/favicon_orange.png">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Corrigir posição da lupa */
+        .search-users {
+            position: relative;
+        }
+
+        .search-users::before {
+            content: "\f002";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .search-users input {
+            width: 100%;
+            padding: var(--space-md) var(--space-md) var(--space-md) 45px;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            background: var(--bg-input);
+            color: var(--text-light);
+            font-size: 1rem;
+            margin-bottom: var(--space-md);
+            transition: border-color 0.2s ease;
+        }
+
+        .search-users input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 2px rgba(255, 87, 34, 0.2);
+        }
+
+        /* Melhorar aparência das mensagens */
+        .message {
+            margin-bottom: var(--space-md);
+            animation: fadeInMessage 0.3s ease;
+        }
+
+        @keyframes fadeInMessage {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Indicador de digitação */
+        .typing-indicator {
+            display: none;
+            padding: var(--space-sm);
+            color: var(--text-muted);
+            font-style: italic;
+            font-size: 0.9rem;
+        }
+
+        /* Status de conexão */
+        .connection-status {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        .connection-status.online {
+            background: #10b981;
+            color: white;
+        }
+
+        .connection-status.offline {
+            background: #ef4444;
+            color: white;
+        }
+
+        /* Melhorar scroll das mensagens */
+        .messages-container {
+            scroll-behavior: smooth;
+        }
+
+        /* Indicador de mensagem não lida */
+        .message.unread {
+            background: rgba(255, 87, 34, 0.05);
+            border-left: 3px solid var(--color-primary);
+            padding-left: calc(var(--space-md) - 3px);
+        }
+    </style>
 </head>
 
 <body>
     <?php require "parciais/header.php" ?>
+
+    <!-- Status de conexão -->
+    <div id="connectionStatus" class="connection-status">
+        <i class="fas fa-wifi"></i> Conectado
+    </div>
 
     <div class="container">
         <aside class="sidebar">
@@ -72,7 +176,7 @@ $resultConversas = mysqli_query($con, $sqlConversas);
                         </button>
                     </div>
 
-                    <div class="conversations">
+                    <div class="conversations" id="conversationsList">
                         <?php if (mysqli_num_rows($resultConversas) > 0): ?>
                             <?php while ($conversa = mysqli_fetch_assoc($resultConversas)): ?>
                                 <?php
@@ -81,7 +185,7 @@ $resultConversas = mysqli_query($con, $sqlConversas);
                                     ['id' => $conversa['utilizador2_id'], 'nick' => $conversa['nick2'], 'nome' => $conversa['nome2'], 'foto' => $conversa['foto2']] :
                                     ['id' => $conversa['utilizador1_id'], 'nick' => $conversa['nick1'], 'nome' => $conversa['nome1'], 'foto' => $conversa['foto1']];
                                 ?>
-                                <div class="conversation-item" onclick="openConversation(<?php echo $conversa['id']; ?>, <?php echo $outroUtilizador['id']; ?>)">
+                                <div class="conversation-item" data-conversation-id="<?php echo $conversa['id']; ?>" onclick="openConversation(<?php echo $conversa['id']; ?>, <?php echo $outroUtilizador['id']; ?>)">
                                     <img src="images/perfil/<?php echo $outroUtilizador['foto'] ?: 'default-profile.jpg'; ?>" 
                                          alt="<?php echo htmlspecialchars($outroUtilizador['nome']); ?>" class="conversation-avatar">
                                     <div class="conversation-info">
@@ -146,10 +250,45 @@ $resultConversas = mysqli_query($con, $sqlConversas);
         let currentConversationId = null;
         let currentOtherUserId = null;
         let messagePolling = null;
+        let lastMessageCount = 0;
+        let isTyping = false;
+        let typingTimeout = null;
+        let connectionStatus = 'online';
+
+        // Verificar conexão
+        function checkConnection() {
+            const statusEl = document.getElementById('connectionStatus');
+            
+            if (navigator.onLine) {
+                if (connectionStatus !== 'online') {
+                    connectionStatus = 'online';
+                    statusEl.className = 'connection-status online';
+                    statusEl.innerHTML = '<i class="fas fa-wifi"></i> Conectado';
+                    statusEl.style.display = 'block';
+                    setTimeout(() => statusEl.style.display = 'none', 2000);
+                }
+            } else {
+                connectionStatus = 'offline';
+                statusEl.className = 'connection-status offline';
+                statusEl.innerHTML = '<i class="fas fa-wifi-slash"></i> Sem conexão';
+                statusEl.style.display = 'block';
+            }
+        }
+
+        // Verificar conexão periodicamente
+        setInterval(checkConnection, 5000);
+        window.addEventListener('online', checkConnection);
+        window.addEventListener('offline', checkConnection);
 
         function openConversation(conversationId, otherUserId) {
             currentConversationId = conversationId;
             currentOtherUserId = otherUserId;
+            
+            // Marcar conversa como ativa
+            document.querySelectorAll('.conversation-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`[data-conversation-id="${conversationId}"]`).classList.add('active');
             
             // Marcar mensagens como lidas
             fetch('../backend/mark_messages_read.php', {
@@ -160,56 +299,103 @@ $resultConversas = mysqli_query($con, $sqlConversas);
 
             loadMessages();
             
-            // Iniciar polling para novas mensagens
+            // Parar polling anterior e iniciar novo
             if (messagePolling) clearInterval(messagePolling);
-            messagePolling = setInterval(loadMessages, 3000);
+            messagePolling = setInterval(() => {
+                if (document.visibilityState === 'visible') {
+                    loadMessages(false); // false = não fazer scroll automático
+                }
+            }, 2000); // Reduzido para 2 segundos
         }
 
-        function loadMessages() {
+        function loadMessages(scrollToBottom = true) {
             if (!currentConversationId) return;
 
             fetch(`../backend/get_messages.php?conversation_id=${currentConversationId}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        displayMessages(data.messages, data.other_user);
+                        const newMessageCount = data.messages.length;
+                        const hasNewMessages = newMessageCount > lastMessageCount;
+                        
+                        displayMessages(data.messages, data.other_user, scrollToBottom && hasNewMessages);
+                        lastMessageCount = newMessageCount;
+                        
+                        // Atualizar lista de conversas se houver novas mensagens
+                        if (hasNewMessages) {
+                            updateConversationsList();
+                        }
                     }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar mensagens:', error);
                 });
         }
 
-        function displayMessages(messages, otherUser) {
+        function displayMessages(messages, otherUser, scrollToBottom = true) {
             const chatArea = document.getElementById('chatArea');
+            const messagesContainer = document.getElementById('messagesContainer');
             
-            chatArea.innerHTML = `
-                <div class="chat-header">
-                    <img src="images/perfil/${otherUser.foto_perfil || 'default-profile.jpg'}" 
-                         alt="${otherUser.nome_completo}" class="chat-avatar">
-                    <div class="chat-user-info">
-                        <h3>${otherUser.nome_completo}</h3>
-                        <p>@${otherUser.nick}</p>
+            // Se é a primeira vez carregando, criar toda a estrutura
+            if (!messagesContainer) {
+                chatArea.innerHTML = `
+                    <div class="chat-header">
+                        <img src="images/perfil/${otherUser.foto_perfil || 'default-profile.jpg'}" 
+                             alt="${otherUser.nome_completo}" class="chat-avatar">
+                        <div class="chat-user-info">
+                            <h3>${otherUser.nome_completo}</h3>
+                            <p>@${otherUser.nick}</p>
+                        </div>
+                    </div>
+                    <div class="messages-container" id="messagesContainer">
+                        ${generateMessagesHTML(messages)}
+                    </div>
+                    <div class="typing-indicator" id="typingIndicator">
+                        <i class="fas fa-ellipsis-h"></i> Digitando...
+                    </div>
+                    <div class="message-input-container">
+                        <form onsubmit="sendMessage(event)">
+                            <input type="text" id="messageInput" placeholder="Escreva uma mensagem..." required>
+                            <button type="submit"><i class="fas fa-paper-plane"></i></button>
+                        </form>
+                    </div>
+                `;
+                
+                if (scrollToBottom) {
+                    setTimeout(() => scrollToBottomSmooth(), 100);
+                }
+            } else {
+                // Apenas atualizar as mensagens
+                const currentScrollTop = messagesContainer.scrollTop;
+                const currentScrollHeight = messagesContainer.scrollHeight;
+                
+                messagesContainer.innerHTML = generateMessagesHTML(messages);
+                
+                if (scrollToBottom) {
+                    scrollToBottomSmooth();
+                } else {
+                    // Manter posição de scroll se não for para ir para o fim
+                    messagesContainer.scrollTop = currentScrollTop;
+                }
+            }
+        }
+
+        function generateMessagesHTML(messages) {
+            return messages.map(message => `
+                <div class="message ${message.remetente_id == <?php echo $currentUserId; ?> ? 'sent' : 'received'}">
+                    <div class="message-content">
+                        <p>${message.conteudo}</p>
+                        <span class="message-time">${formatTime(message.data_envio)}</span>
                     </div>
                 </div>
-                <div class="messages-container" id="messagesContainer">
-                    ${messages.map(message => `
-                        <div class="message ${message.remetente_id == <?php echo $currentUserId; ?> ? 'sent' : 'received'}">
-                            <div class="message-content">
-                                <p>${message.conteudo}</p>
-                                <span class="message-time">${formatTime(message.data_envio)}</span>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-                <div class="message-input-container">
-                    <form onsubmit="sendMessage(event)">
-                        <input type="text" id="messageInput" placeholder="Escreva uma mensagem..." required>
-                        <button type="submit"><i class="fas fa-paper-plane"></i></button>
-                    </form>
-                </div>
-            `;
+            `).join('');
+        }
 
-            // Scroll para a última mensagem
+        function scrollToBottomSmooth() {
             const messagesContainer = document.getElementById('messagesContainer');
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            if (messagesContainer) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
         }
 
         function sendMessage(event) {
@@ -220,6 +406,9 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             
             if (!content || !currentConversationId) return;
 
+            // Limpar input imediatamente para melhor UX
+            messageInput.value = '';
+
             fetch('../backend/send_message.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -228,22 +417,33 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    messageInput.value = '';
-                    loadMessages();
+                    // Carregar mensagens imediatamente após enviar
+                    loadMessages(true);
                     updateConversationsList();
+                } else {
+                    // Se falhou, restaurar o texto
+                    messageInput.value = content;
+                    alert('Erro ao enviar mensagem. Tente novamente.');
                 }
+            })
+            .catch(error => {
+                console.error('Erro ao enviar mensagem:', error);
+                messageInput.value = content;
+                alert('Erro ao enviar mensagem. Verifique sua conexão.');
             });
         }
 
         function openNewMessageModal() {
             document.getElementById('newMessageModal').style.display = 'flex';
             document.getElementById('userSearch').focus();
+            document.body.style.overflow = 'hidden';
         }
 
         function closeNewMessageModal() {
             document.getElementById('newMessageModal').style.display = 'none';
             document.getElementById('userSearch').value = '';
             document.getElementById('userResults').innerHTML = '';
+            document.body.style.overflow = 'auto';
         }
 
         function searchUsers() {
@@ -268,6 +468,9 @@ $resultConversas = mysqli_query($con, $sqlConversas);
                             </div>
                         </div>
                     `).join('');
+                })
+                .catch(error => {
+                    console.error('Erro na pesquisa:', error);
                 });
         }
 
@@ -284,14 +487,35 @@ $resultConversas = mysqli_query($con, $sqlConversas);
                     openConversation(data.conversation_id, userId);
                     updateConversationsList();
                 }
+            })
+            .catch(error => {
+                console.error('Erro ao criar conversa:', error);
             });
         }
 
         function updateConversationsList() {
-            // Recarregar a página para atualizar a lista de conversas
-            setTimeout(() => {
-                location.reload();
-            }, 1000);
+            // Recarregar apenas a lista de conversas sem reload da página
+            fetch(window.location.href)
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newConversationsList = doc.getElementById('conversationsList');
+                    if (newConversationsList) {
+                        document.getElementById('conversationsList').innerHTML = newConversationsList.innerHTML;
+                        
+                        // Reativar conversa atual
+                        if (currentConversationId) {
+                            const activeItem = document.querySelector(`[data-conversation-id="${currentConversationId}"]`);
+                            if (activeItem) {
+                                activeItem.classList.add('active');
+                            }
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao atualizar lista:', error);
+                });
         }
 
         function formatTime(dateString) {
@@ -317,6 +541,21 @@ $resultConversas = mysqli_query($con, $sqlConversas);
         window.addEventListener('beforeunload', function() {
             if (messagePolling) clearInterval(messagePolling);
         });
+
+        // Pausar polling quando a página não está visível
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'hidden') {
+                if (messagePolling) clearInterval(messagePolling);
+            } else if (currentConversationId) {
+                // Retomar polling quando voltar à página
+                messagePolling = setInterval(() => {
+                    loadMessages(false);
+                }, 2000);
+            }
+        });
+
+        // Inicializar verificação de conexão
+        checkConnection();
     </script>
 </body>
 </html>
