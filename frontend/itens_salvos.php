@@ -287,21 +287,7 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
     </div>
 
     <div class="container">
-        <aside class="sidebar">
-            <nav>
-                <ul>
-                    <li><a href="index.php"><i class="fas fa-home"></i> <span>Home</span></a></li>
-                    <li><a href="perfil.php"><i class="fas fa-user"></i> <span>Perfil</span></a></li>
-                    <li><a href="#"><i class="fas fa-briefcase"></i> <span>Trabalho</span></a></li>
-                    <li><a href="#"><i class="fas fa-comments"></i> <span>Mensagens</span></a></li>
-                    <li><a href="#"><i class="fas fa-bell"></i> <span>Notificações</span></a></li>
-                    <li><a href="#"><i class="fas fa-network-wired"></i> <span>Conexões</span></a></li>
-                    <li><a href="itens_salvos.php" class="active"><i class="fas fa-bookmark"></i> <span>Itens
-                                Salvos</span></a></li>
-                    <li><a href="#"><i class="fas fa-chart-line"></i> <span>Estatisticas</span></a></li>
-                </ul>
-            </nav>
-        </aside>
+        <?php require("parciais/sidebar.php"); ?>
 
         <main class="feed">
             <div class="saved-posts-header">

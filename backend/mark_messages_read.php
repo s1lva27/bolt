@@ -28,8 +28,16 @@ $stmt = $con->prepare($sql);
 $stmt->bind_param("ii", $conversationId, $currentUserId);
 
 if ($stmt->execute()) {
-    echo json_encode(['success' => true]);
+    $affectedRows = $stmt->affected_rows;
+
+    // Atualizar o contador na sessão
+    $_SESSION['unread_count'] = max(0, ($_SESSION['unread_count'] ?? 0) - $affectedRows);
+
+    echo json_encode([
+        'success' => true,
+        'marked_as_read' => $affectedRows,
+        'new_unread_count' => $_SESSION['unread_count']
+    ]);
 } else {
     echo json_encode(['success' => false, 'message' => 'Erro ao marcar mensagens como lidas']);
 }
-?>

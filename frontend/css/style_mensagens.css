@@ -447,7 +447,8 @@
     color: var(--text-light);
     font-size: 1rem;
     margin-bottom: var(--space-md);
-    padding-left: 40px; /* Espaço para o ícone */
+    padding-left: 40px;
+    /* Espaço para o ícone */
 }
 
 .search-users input:focus {
@@ -576,4 +577,31 @@
 .messages-container::-webkit-scrollbar-thumb:hover,
 .user-results::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
+}
+
+@keyframes animate-pop {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.2);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.animate-pop {
+    animation: animate-pop 0.3s ease;
+}
+
+.notification-badge {
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.notification-badge:hover {
+    transform: translateY(-2px);
+    background: linear-gradient(135deg, #ff3333, #ff0000);
 }
