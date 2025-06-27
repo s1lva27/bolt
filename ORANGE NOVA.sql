@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Tempo de geração: 26/06/2025 às 18:01
+-- Tempo de geração: 27/06/2025 às 12:26
 -- Versão do servidor: 10.4.32-MariaDB
 -- Versão do PHP: 8.2.12
 
@@ -34,6 +34,49 @@ CREATE TABLE `comentarios` (
   `conteudo` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `data` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estrutura para tabela `conversas`
+--
+
+CREATE TABLE `conversas` (
+  `id` int(11) NOT NULL,
+  `utilizador1_id` int(11) NOT NULL,
+  `utilizador2_id` int(11) NOT NULL,
+  `data_criacao` timestamp NOT NULL DEFAULT current_timestamp(),
+  `ultima_atividade` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Despejando dados para a tabela `conversas`
+--
+
+INSERT INTO `conversas` (`id`, `utilizador1_id`, `utilizador2_id`, `data_criacao`, `ultima_atividade`) VALUES
+(1, 78, 89, '2025-06-27 10:24:46', '2025-06-27 10:24:56');
+
+-- --------------------------------------------------------
+
+--
+-- Estrutura para tabela `mensagens`
+--
+
+CREATE TABLE `mensagens` (
+  `id` int(11) NOT NULL,
+  `conversa_id` int(11) NOT NULL,
+  `remetente_id` int(11) NOT NULL,
+  `conteudo` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `data_envio` timestamp NOT NULL DEFAULT current_timestamp(),
+  `lida` tinyint(1) NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Despejando dados para a tabela `mensagens`
+--
+
+INSERT INTO `mensagens` (`id`, `conversa_id`, `remetente_id`, `conteudo`, `data_envio`, `lida`) VALUES
+(1, 1, 78, 'ola', '2025-06-27 10:24:56', 1);
 
 -- --------------------------------------------------------
 
@@ -139,7 +182,8 @@ CREATE TABLE `publicacoes` (
 INSERT INTO `publicacoes` (`id_publicacao`, `id_utilizador`, `conteudo`, `categoria`, `data_criacao`, `deletado_em`, `likes`) VALUES
 (220, 78, 'asas', NULL, '2025-06-26 15:47:24', '0000-00-00 00:00:00', 0),
 (221, 78, 'asas', NULL, '2025-06-26 15:47:25', '0000-00-00 00:00:00', 0),
-(222, 78, 'asas', NULL, '2025-06-26 15:47:26', '0000-00-00 00:00:00', 0);
+(222, 78, 'asas', NULL, '2025-06-26 15:47:26', '0000-00-00 00:00:00', 0),
+(223, 78, 'as', NULL, '2025-06-27 10:24:39', '0000-00-00 00:00:00', 0);
 
 -- --------------------------------------------------------
 
@@ -243,6 +287,25 @@ ALTER TABLE `comentarios`
   ADD KEY `idx_publicacao_utilizador` (`id_publicacao`,`utilizador_id`);
 
 --
+-- Índices de tabela `conversas`
+--
+ALTER TABLE `conversas`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_conversation` (`utilizador1_id`,`utilizador2_id`),
+  ADD KEY `utilizador2_id` (`utilizador2_id`),
+  ADD KEY `idx_ultima_atividade` (`ultima_atividade`);
+
+--
+-- Índices de tabela `mensagens`
+--
+ALTER TABLE `mensagens`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `conversa_id` (`conversa_id`),
+  ADD KEY `remetente_id` (`remetente_id`),
+  ADD KEY `idx_data_envio` (`data_envio`),
+  ADD KEY `idx_lida` (`lida`);
+
+--
 -- Índices de tabela `perfis`
 --
 ALTER TABLE `perfis`
@@ -313,6 +376,18 @@ ALTER TABLE `comentarios`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=105;
 
 --
+-- AUTO_INCREMENT de tabela `conversas`
+--
+ALTER TABLE `conversas`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT de tabela `mensagens`
+--
+ALTER TABLE `mensagens`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
 -- AUTO_INCREMENT de tabela `perfis`
 --
 ALTER TABLE `perfis`
@@ -340,7 +415,7 @@ ALTER TABLE `publicacao_salvas`
 -- AUTO_INCREMENT de tabela `publicacoes`
 --
 ALTER TABLE `publicacoes`
-  MODIFY `id_publicacao` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=223;
+  MODIFY `id_publicacao` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=224;
 
 --
 -- AUTO_INCREMENT de tabela `tipos_utilizador`
@@ -365,6 +440,20 @@ ALTER TABLE `comentarios`
   ADD CONSTRAINT `comentarios_ibfk_1` FOREIGN KEY (`id_publicacao`) REFERENCES `publicacoes` (`id_publicacao`),
   ADD CONSTRAINT `comentarios_ibfk_2` FOREIGN KEY (`utilizador_id`) REFERENCES `utilizadores` (`id`),
   ADD CONSTRAINT `fk_publicacao` FOREIGN KEY (`id_publicacao`) REFERENCES `publicacoes` (`id_publicacao`) ON DELETE CASCADE;
+
+--
+-- Restrições para tabelas `conversas`
+--
+ALTER TABLE `conversas`
+  ADD CONSTRAINT `conversas_ibfk_1` FOREIGN KEY (`utilizador1_id`) REFERENCES `utilizadores` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `conversas_ibfk_2` FOREIGN KEY (`utilizador2_id`) REFERENCES `utilizadores` (`id`) ON DELETE CASCADE;
+
+--
+-- Restrições para tabelas `mensagens`
+--
+ALTER TABLE `mensagens`
+  ADD CONSTRAINT `mensagens_ibfk_1` FOREIGN KEY (`conversa_id`) REFERENCES `conversas` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `mensagens_ibfk_2` FOREIGN KEY (`remetente_id`) REFERENCES `utilizadores` (`id`) ON DELETE CASCADE;
 
 --
 -- Restrições para tabelas `perfis`

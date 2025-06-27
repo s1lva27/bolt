@@ -1,0 +1,66 @@
+<?php
+session_start();
+require "ligabd.php";
+
+header('Content-Type: application/json');
+
+if (!isset($_SESSION['id'])) {
+    echo json_encode(['success' => false, 'message' => 'Não autenticado']);
+    exit;
+}
+
+if (!isset($_GET['conversation_id'])) {
+    echo json_encode(['success' => false, 'message' => 'ID da conversa não fornecido']);
+    exit;
+}
+
+$currentUserId = $_SESSION['id'];
+$conversationId = intval($_GET['conversation_id']);
+
+// Verificar se o utilizador faz parte da conversa
+$sqlCheck = "SELECT utilizador1_id, utilizador2_id FROM conversas 
+             WHERE id = ? AND (utilizador1_id = ? OR utilizador2_id = ?)";
+$stmtCheck = $con->prepare($sqlCheck);
+$stmtCheck->bind_param("iii", $conversationId, $currentUserId, $currentUserId);
+$stmtCheck->execute();
+$result = $stmtCheck->get_result();
+
+if ($result->num_rows === 0) {
+    echo json_encode(['success' => false, 'message' => 'Conversa não encontrada']);
+    exit;
+}
+
+$conversation = $result->fetch_assoc();
+$otherUserId = ($conversation['utilizador1_id'] == $currentUserId) ? 
+    $conversation['utilizador2_id'] : $conversation['utilizador1_id'];
+
+// Buscar informações do outro utilizador
+$sqlUser = "SELECT u.id, u.nick, u.nome_completo, p.foto_perfil 
+            FROM utilizadores u 
+            LEFT JOIN perfis p ON u.id = p.id_utilizador 
+            WHERE u.id = ?";
+$stmtUser = $con->prepare($sqlUser);
+$stmtUser->bind_param("i", $otherUserId);
+$stmtUser->execute();
+$otherUser = $stmtUser->get_result()->fetch_assoc();
+
+// Buscar mensagens
+$sqlMessages = "SELECT * FROM mensagens 
+                WHERE conversa_id = ? 
+                ORDER BY data_envio ASC";
+$stmtMessages = $con->prepare($sqlMessages);
+$stmtMessages->bind_param("i", $conversationId);
+$stmtMessages->execute();
+$result = $stmtMessages->get_result();
+
+$messages = [];
+while ($row = $result->fetch_assoc()) {
+    $messages[] = $row;
+}
+
+echo json_encode([
+    'success' => true,
+    'messages' => $messages,
+    'other_user' => $otherUser
+]);
+?>

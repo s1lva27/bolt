@@ -362,7 +362,7 @@ if (!empty($_SESSION)) {
                     <li><a href="#" class="active"><i class="fas fa-home"></i> <span>Home</span></a></li>
                     <li><a href="perfil.php"><i class="fas fa-user"></i> <span>Perfil</span></a></li>
                     <li><a href="#"><i class="fas fa-briefcase"></i> <span>Trabalho</span></a></li>
-                    <li><a href="#"><i class="fas fa-comments"></i> <span>Mensagens</span></a></li>
+                    <li><a href="mensagens.php"><i class="fas fa-comments"></i> <span>Mensagens</span></a></li>
                     <li><a href="#"><i class="fas fa-bell"></i> <span>Notificações</span></a></li>
                     <li><a href="#"><i class="fas fa-network-wired"></i> <span>Conexões</span></a></li>
                     <li><a href="itens_salvos.php"><i class="fas fa-bookmark"></i> <span>Itens Salvos</span></a></li>
