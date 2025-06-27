@@ -30,14 +30,26 @@ $stmt->bind_param("ii", $conversationId, $currentUserId);
 if ($stmt->execute()) {
     $affectedRows = $stmt->affected_rows;
 
-    // Atualizar o contador na sessão
-    $_SESSION['unread_count'] = max(0, ($_SESSION['unread_count'] ?? 0) - $affectedRows);
+    // Buscar o novo total de mensagens não lidas
+    $sqlTotal = "SELECT COUNT(*) as total_unread
+                 FROM mensagens m
+                 JOIN conversas c ON m.conversa_id = c.id
+                 WHERE (c.utilizador1_id = ? OR c.utilizador2_id = ?)
+                 AND m.remetente_id != ?
+                 AND m.lida = 0";
+    
+    $stmtTotal = $con->prepare($sqlTotal);
+    $stmtTotal->bind_param("iii", $currentUserId, $currentUserId, $currentUserId);
+    $stmtTotal->execute();
+    $resultTotal = $stmtTotal->get_result()->fetch_assoc();
+    $newUnreadCount = (int) $resultTotal['total_unread'];
 
     echo json_encode([
         'success' => true,
         'marked_as_read' => $affectedRows,
-        'new_unread_count' => $_SESSION['unread_count']
+        'new_unread_count' => $newUnreadCount
     ]);
 } else {
     echo json_encode(['success' => false, 'message' => 'Erro ao marcar mensagens como lidas']);
 }
+?>

@@ -83,7 +83,6 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             cursor: pointer;
         }
 
-        /* Melhorar aparência das mensagens e evitar flickering */
         .message {
             margin-bottom: var(--space-md);
             opacity: 1;
@@ -100,7 +99,6 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             min-height: 200px;
         }
 
-        /* Indicador de digitação melhorado */
         .typing-indicator {
             display: none;
             padding: var(--space-sm);
@@ -111,18 +109,14 @@ $resultConversas = mysqli_query($con, $sqlConversas);
         }
 
         @keyframes pulse {
-
-            0%,
-            100% {
+            0%, 100% {
                 opacity: 0.6;
             }
-
             50% {
                 opacity: 1;
             }
         }
 
-        /* Status de conexão melhorado */
         .connection-status {
             position: fixed;
             top: 70px;
@@ -146,7 +140,6 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             color: white;
         }
 
-        /* Corrigir posição da lupa */
         .search-users {
             position: relative;
         }
@@ -182,14 +175,12 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             box-shadow: 0 0 0 2px rgba(255, 87, 34, 0.2);
         }
 
-        /* Indicador de mensagem não lida */
         .message.unread {
             background: rgba(255, 87, 34, 0.05);
             border-left: 3px solid var(--color-primary);
             padding-left: calc(var(--space-md) - 3px);
         }
 
-        /* Loading state para mensagens */
         .messages-loading {
             display: flex;
             justify-content: center;
@@ -207,13 +198,11 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             from {
                 transform: rotate(0deg);
             }
-
             to {
                 transform: rotate(360deg);
             }
         }
 
-        /* Otimização para evitar reflow */
         .chat-area {
             contain: layout style paint;
         }
@@ -321,7 +310,6 @@ $resultConversas = mysqli_query($con, $sqlConversas);
     </div>
 
     <script>
-
         const AppState = {
             currentConversationId: null,
             currentOtherUserId: null,
@@ -332,7 +320,7 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             connectionStatus: 'online',
             messagesCache: new Map(),
             isLoadingMessages: false,
-            updatingConversations: false // Adicione esta linha
+            updatingConversations: false
         };
 
         document.addEventListener('DOMContentLoaded', function () {
@@ -364,29 +352,6 @@ $resultConversas = mysqli_query($con, $sqlConversas);
         window.addEventListener('online', checkConnection);
         window.addEventListener('offline', checkConnection);
 
-        // Marcar mensagens como lidas
-        fetch('../backend/mark_messages_read.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `conversation_id=${conversationId}`
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.marked_as_read > 0) {
-                    // Disparar evento para atualizar a sidebar
-                    const event = new CustomEvent('unreadCountUpdated', {
-                        detail: { change: -data.marked_as_read }
-                    });
-                    document.dispatchEvent(event);
-
-                    // Para atualizar em outras abas
-                    localStorage.setItem('unreadCountUpdate', JSON.stringify({
-                        change: -data.marked_as_read,
-                        timestamp: Date.now()
-                    }));
-                }
-            });
-
         function openConversation(conversationId, otherUserId) {
             // Se já está na mesma conversa, não fazer nada
             if (AppState.currentConversationId === conversationId) return;
@@ -407,10 +372,10 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             // Mostrar estado de carregamento
             const chatArea = document.getElementById('chatArea');
             chatArea.innerHTML = `
-        <div class="messages-loading">
-            <i class="fas fa-spinner"></i> Carregando conversa...
-        </div>
-    `;
+                <div class="messages-loading">
+                    <i class="fas fa-spinner"></i> Carregando conversa...
+                </div>
+            `;
 
             // Parar qualquer polling anterior
             if (AppState.messagePolling) {
@@ -439,16 +404,19 @@ $resultConversas = mysqli_query($con, $sqlConversas);
             })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.success) {
+                    if (data.success && data.marked_as_read > 0) {
                         // Disparar evento para atualizar a sidebar
                         const event = new CustomEvent('unreadCountUpdated', {
-                            detail: { change: -data.marked_as_read }
+                            detail: { 
+                                change: -data.marked_as_read,
+                                newCount: data.new_unread_count || 0
+                            }
                         });
                         document.dispatchEvent(event);
 
                         // Para atualizar em outras abas
                         localStorage.setItem('unreadCountUpdate', JSON.stringify({
-                            change: -data.marked_as_read,
+                            newCount: data.new_unread_count || 0,
                             timestamp: Date.now()
                         }));
 
@@ -477,31 +445,28 @@ $resultConversas = mysqli_query($con, $sqlConversas);
 
             fetch(`../backend/get_messages.php?conversation_id=${AppState.currentConversationId}`)
                 .then(response => {
-                    // Primeiro verifique se a resposta é OK
                     if (!response.ok) {
                         throw new Error('Erro na resposta do servidor');
                     }
-
-                    // Tentar parsear como JSON
-                    return response.text().then(text => {
-                        try {
-                            return JSON.parse(text);
-                        } catch (e) {
-                            console.error('Resposta inválida:', text);
-                            throw new Error('Resposta do servidor não é JSON válido');
-                        }
-                    });
+                    return response.json();
                 })
                 .then(data => {
                     if (data.success) {
-                        // Processar mensagens...
+                        displayMessages(data.messages, data.other_user, scrollToBottom);
                     } else {
                         throw new Error(data.message || 'Erro ao carregar mensagens');
                     }
                 })
                 .catch(error => {
                     console.error('Erro:', error);
-                    // Mostrar mensagem de erro ao usuário
+                    const chatArea = document.getElementById('chatArea');
+                    chatArea.innerHTML = `
+                        <div class="error-loading">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <p>Erro ao carregar mensagens</p>
+                            <button onclick="loadMessages(true)">Tentar novamente</button>
+                        </div>
+                    `;
                 })
                 .finally(() => {
                     AppState.isLoadingMessages = false;
@@ -513,27 +478,27 @@ $resultConversas = mysqli_query($con, $sqlConversas);
 
             // Criar cabeçalho do chat
             const chatHeader = `
-        <div class="chat-header">
-            <img src="images/perfil/${otherUser.foto_perfil || 'default-profile.jpg'}" 
-                 alt="${otherUser.nome_completo}" class="chat-avatar">
-            <div class="chat-user-info">
-                <h3>${otherUser.nome_completo}</h3>
-                <p>@${otherUser.nick}</p>
-            </div>
-        </div>
-        <div class="messages-container" id="messagesContainer">
-            ${generateMessagesHTML(messages)}
-        </div>
-        <div class="typing-indicator" id="typingIndicator">
-            <i class="fas fa-ellipsis-h"></i> Digitando...
-        </div>
-        <div class="message-input-container">
-            <form onsubmit="sendMessage(event)">
-                <input type="text" id="messageInput" placeholder="Escreva uma mensagem..." required>
-                <button type="submit"><i class="fas fa-paper-plane"></i></button>
-            </form>
-        </div>
-    `;
+                <div class="chat-header">
+                    <img src="images/perfil/${otherUser.foto_perfil || 'default-profile.jpg'}" 
+                         alt="${otherUser.nome_completo}" class="chat-avatar">
+                    <div class="chat-user-info">
+                        <h3>${otherUser.nome_completo}</h3>
+                        <p>@${otherUser.nick}</p>
+                    </div>
+                </div>
+                <div class="messages-container" id="messagesContainer">
+                    ${generateMessagesHTML(messages)}
+                </div>
+                <div class="typing-indicator" id="typingIndicator">
+                    <i class="fas fa-ellipsis-h"></i> Digitando...
+                </div>
+                <div class="message-input-container">
+                    <form onsubmit="sendMessage(event)">
+                        <input type="text" id="messageInput" placeholder="Escreva uma mensagem..." required>
+                        <button type="submit"><i class="fas fa-paper-plane"></i></button>
+                    </form>
+                </div>
+            `;
 
             chatArea.innerHTML = chatHeader;
 
@@ -708,19 +673,19 @@ $resultConversas = mysqli_query($con, $sqlConversas);
 
                         // Cria o HTML para a nova conversa
                         const conversationHtml = `
-                <div class="conversation-item active" data-conversation-id="${data.conversation_id}" 
-                     onclick="openConversation(${data.conversation_id}, ${data.other_user.id})">
-                    <img src="images/perfil/default-profile.jpg" 
-                         alt="${data.other_user.nome}" class="conversation-avatar">
-                    <div class="conversation-info">
-                        <div class="conversation-header">
-                            <h4>${data.other_user.nome}</h4>
-                            <span class="conversation-time">Agora</span>
-                        </div>
-                        <p class="last-message">Iniciar conversa...</p>
-                    </div>
-                </div>
-            `;
+                            <div class="conversation-item active" data-conversation-id="${data.conversation_id}" 
+                                 onclick="openConversation(${data.conversation_id}, ${data.other_user.id})">
+                                <img src="images/perfil/default-profile.jpg" 
+                                     alt="${data.other_user.nome}" class="conversation-avatar">
+                                <div class="conversation-info">
+                                    <div class="conversation-header">
+                                        <h4>${data.other_user.nome}</h4>
+                                        <span class="conversation-time">Agora</span>
+                                    </div>
+                                    <p class="last-message">Iniciar conversa...</p>
+                                </div>
+                            </div>
+                        `;
 
                         // Insere no início da lista
                         conversationsList.insertAdjacentHTML('afterbegin', conversationHtml);
@@ -754,38 +719,38 @@ $resultConversas = mysqli_query($con, $sqlConversas);
 
                         if (data.conversations.length === 0) {
                             newHTML = `
-                        <div class="no-conversations">
-                            <i class="fas fa-comments"></i>
-                            <h3>Nenhuma conversa ainda</h3>
-                            <p>Comece uma nova conversa com alguém!</p>
-                            <button class="start-conversation-btn" onclick="openNewMessageModal()">
-                                Iniciar Conversa
-                            </button>
-                        </div>
-                    `;
+                                <div class="no-conversations">
+                                    <i class="fas fa-comments"></i>
+                                    <h3>Nenhuma conversa ainda</h3>
+                                    <p>Comece uma nova conversa com alguém!</p>
+                                    <button class="start-conversation-btn" onclick="openNewMessageModal()">
+                                        Iniciar Conversa
+                                    </button>
+                                </div>
+                            `;
                         } else {
                             newHTML = data.conversations.map(conversation => {
                                 const otherUser = conversation.other_user;
                                 return `
-                            <div class="conversation-item" data-conversation-id="${conversation.id}" onclick="openConversation(${conversation.id}, ${otherUser.id})">
-                                <img src="images/perfil/${otherUser.foto || 'default-profile.jpg'}" 
-                                     alt="${otherUser.nome}" class="conversation-avatar">
-                                <div class="conversation-info">
-                                    <div class="conversation-header">
-                                        <h4>${otherUser.nome}</h4>
-                                        <span class="conversation-time">
-                                            ${formatTime(conversation.ultima_atividade)}
-                                        </span>
+                                    <div class="conversation-item" data-conversation-id="${conversation.id}" onclick="openConversation(${conversation.id}, ${otherUser.id})">
+                                        <img src="images/perfil/${otherUser.foto || 'default-profile.jpg'}" 
+                                             alt="${otherUser.nome}" class="conversation-avatar">
+                                        <div class="conversation-info">
+                                            <div class="conversation-header">
+                                                <h4>${otherUser.nome}</h4>
+                                                <span class="conversation-time">
+                                                    ${formatTime(conversation.ultima_atividade)}
+                                                </span>
+                                            </div>
+                                            <p class="last-message">
+                                                ${conversation.ultima_mensagem ? escapeHtml(conversation.ultima_mensagem.substring(0, 50)) : 'Iniciar conversa...'}
+                                                ${conversation.ultima_mensagem && conversation.ultima_mensagem.length > 50 ? '...' : ''}
+                                            </p>
+                                        </div>
+                                        ${conversation.mensagens_nao_lidas > 0 ?
+                                            `<div class="unread-badge">${conversation.mensagens_nao_lidas}</div>` : ''}
                                     </div>
-                                    <p class="last-message">
-                                        ${conversation.ultima_mensagem ? escapeHtml(conversation.ultima_mensagem.substring(0, 50)) : 'Iniciar conversa...'}
-                                        ${conversation.ultima_mensagem && conversation.ultima_mensagem.length > 50 ? '...' : ''}
-                                    </p>
-                                </div>
-                                ${conversation.mensagens_nao_lidas > 0 ?
-                                        `<div class="unread-badge">${conversation.mensagens_nao_lidas}</div>` : ''}
-                            </div>
-                        `;
+                                `;
                             }).join('');
                         }
 

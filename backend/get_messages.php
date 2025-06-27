@@ -1,17 +1,16 @@
 <?php
-ob_start(); // Inicia buffer de saída
 session_start();
 require "ligabd.php";
 
+header('Content-Type: application/json');
+
 // Verificar autenticação primeiro
 if (!isset($_SESSION['id'])) {
-    ob_end_clean(); // Limpa buffer
     echo json_encode(['success' => false, 'message' => 'Não autenticado']);
     exit;
 }
 
 if (!isset($_GET['conversation_id'])) {
-    ob_end_clean();
     echo json_encode(['success' => false, 'message' => 'ID da conversa não fornecido']);
     exit;
 }
@@ -74,56 +73,4 @@ echo json_encode([
     'other_user' => $otherUser,
     'unread_count' => $unreadResult['unread_count']
 ]);
-
-
 ?>
-<script>
-    // Polling para atualizar contagem de mensagens não lidas
-    let unreadPolling = null;
-    const POLL_INTERVAL = 5000; // 5 segundos
-
-    function startUnreadPolling() {
-        // Se já estiver rodando, limpar primeiro
-        if (unreadPolling) clearInterval(unreadPolling);
-
-        // Verificar imediatamente e depois em intervalos
-        checkUnreadMessages();
-        unreadPolling = setInterval(checkUnreadMessages, POLL_INTERVAL);
-    }
-
-    function checkUnreadMessages() {
-        fetch('../backend/get_unread_count.php')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    updateUnreadCountDisplay(data.total_unread);
-                }
-            })
-            .catch(error => console.error('Erro ao verificar mensagens não lidas:', error));
-    }
-
-    function updateUnreadCountDisplay(totalUnread) {
-        const badge = document.getElementById('unread-count-badge');
-        if (!badge) return;
-
-        const currentCount = parseInt(badge.textContent) || 0;
-
-        // Só atualizar se mudou
-        if (currentCount !== totalUnread) {
-            const change = totalUnread - currentCount;
-            updateUnreadCount(change);
-        }
-    }
-
-    // Iniciar quando a página carregar
-    document.addEventListener('DOMContentLoaded', startUnreadPolling);
-
-    // Pausar quando a aba não estiver visível
-    document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'hidden') {
-            if (unreadPolling) clearInterval(unreadPolling);
-        } else {
-            startUnreadPolling();
-        }
-    });
-</script>

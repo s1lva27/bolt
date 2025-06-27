@@ -1,27 +1,21 @@
 <?php
 $currentUserId = $_SESSION['id'] ?? 0;
 
-// Query to get conversations and unread messages count
-$sqlConversas = "SELECT c.id, c.utilizador1_id, c.utilizador2_id, c.ultima_atividade,
-                        u1.nick as nick1, u1.nome_completo as nome1, p1.foto_perfil as foto1,
-                        u2.nick as nick2, u2.nome_completo as nome2, p2.foto_perfil as foto2,
-                        (SELECT conteudo FROM mensagens WHERE conversa_id = c.id ORDER BY data_envio DESC LIMIT 1) as ultima_mensagem,
-                        (SELECT COUNT(*) FROM mensagens WHERE conversa_id = c.id AND remetente_id != $currentUserId AND lida = 0) as mensagens_nao_lidas
-                 FROM conversas c
-                 JOIN utilizadores u1 ON c.utilizador1_id = u1.id
-                 JOIN utilizadores u2 ON c.utilizador2_id = u2.id
-                 LEFT JOIN perfis p1 ON u1.id = p1.id_utilizador
-                 LEFT JOIN perfis p2 ON u2.id = p2.id_utilizador
-                 WHERE c.utilizador1_id = $currentUserId OR c.utilizador2_id = $currentUserId
-                 ORDER BY c.ultima_atividade DESC";
-
-$result = mysqli_query($con, $sqlConversas);
+// Query to get total unread messages count
 $totalUnread = 0;
-
-if ($result) {
-    while ($conversa = mysqli_fetch_assoc($result)) {
-        $totalUnread += (int) $conversa['mensagens_nao_lidas'];
-    }
+if ($currentUserId) {
+    $sqlUnread = "SELECT COUNT(*) as total_unread
+                  FROM mensagens m
+                  JOIN conversas c ON m.conversa_id = c.id
+                  WHERE (c.utilizador1_id = ? OR c.utilizador2_id = ?)
+                  AND m.remetente_id != ?
+                  AND m.lida = 0";
+    
+    $stmt = $con->prepare($sqlUnread);
+    $stmt->bind_param("iii", $currentUserId, $currentUserId, $currentUserId);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    $totalUnread = (int) $result['total_unread'];
 }
 ?>
 
@@ -50,53 +44,95 @@ if ($result) {
     var sidebar = document.querySelector(".sidebar");
     var link = window.location.href;
     Array.from(sidebar.querySelectorAll("a")).forEach(element => {
-        console.log(element.href);
         if (link == element.href) {
             element.classList.add("active");
         }
     });
 
+    // Sistema de atualização do contador de mensagens não lidas
+    let unreadPolling = null;
+    const UNREAD_POLL_INTERVAL = 10000; // 10 segundos
+
     // Função para atualizar o contador global
-    function updateUnreadCount(change) {
+    function updateUnreadCount(newCount) {
         const badge = document.getElementById('unread-count-badge');
         if (!badge) return;
 
-        let currentCount = parseInt(badge.textContent) || 0;
-        let newCount = currentCount + change;
+        const currentCount = parseInt(badge.textContent) || 0;
+        
+        // Só atualizar se mudou
+        if (currentCount !== newCount) {
+            badge.textContent = newCount;
 
-        // Garantir que não fique negativo
-        newCount = Math.max(0, newCount);
+            // Mostrar ou esconder conforme necessário
+            if (newCount > 0) {
+                badge.style.display = 'inline-flex';
+                badge.classList.add('animate-float');
+            } else {
+                badge.style.display = 'none';
+                badge.classList.remove('animate-float');
+            }
 
-        // Atualizar o badge
-        badge.textContent = newCount;
-
-        // Mostrar ou esconder conforme necessário
-        if (newCount > 0) {
-            badge.style.display = 'inline-flex';
-            badge.classList.add('animate-float');
-        } else {
-            badge.style.display = 'none';
-            badge.classList.remove('animate-float');
+            // Adicionar animação de mudança
+            badge.classList.add('animate-pop');
+            setTimeout(() => {
+                badge.classList.remove('animate-pop');
+            }, 300);
         }
+    }
 
-        // Adicionar animação de mudança
-        badge.classList.add('animate-pop');
-        setTimeout(() => {
-            badge.classList.remove('animate-pop');
-        }, 300);
+    // Função para verificar mensagens não lidas
+    function checkUnreadMessages() {
+        fetch('../backend/get_unread_count_global.php')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateUnreadCount(data.total_unread);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao verificar mensagens não lidas:', error);
+            });
+    }
+
+    // Iniciar polling para atualização automática
+    function startUnreadPolling() {
+        // Se já estiver rodando, limpar primeiro
+        if (unreadPolling) clearInterval(unreadPolling);
+
+        // Verificar imediatamente e depois em intervalos
+        checkUnreadMessages();
+        unreadPolling = setInterval(checkUnreadMessages, UNREAD_POLL_INTERVAL);
     }
 
     // Ouvir eventos de atualização (será chamado de mensagens.php)
     document.addEventListener('unreadCountUpdated', function (e) {
-        updateUnreadCount(e.detail.change);
+        updateUnreadCount(e.detail.newCount);
     });
 
     // Sincronização entre abas
     window.addEventListener('storage', function (e) {
         if (e.key === 'unreadCountUpdate') {
             const data = JSON.parse(e.newValue);
-            updateUnreadCount(data.change);
+            updateUnreadCount(data.newCount);
         }
+    });
+
+    // Iniciar quando a página carregar
+    document.addEventListener('DOMContentLoaded', startUnreadPolling);
+
+    // Pausar quando a aba não estiver visível
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') {
+            if (unreadPolling) clearInterval(unreadPolling);
+        } else {
+            startUnreadPolling();
+        }
+    });
+
+    // Cleanup ao sair da página
+    window.addEventListener('beforeunload', function () {
+        if (unreadPolling) clearInterval(unreadPolling);
     });
 </script>
 
@@ -131,12 +167,9 @@ if ($result) {
     }
 
     @keyframes float {
-
-        0%,
-        100% {
+        0%, 100% {
             transform: translateY(0);
         }
-
         50% {
             transform: translateY(-3px);
         }
@@ -147,11 +180,9 @@ if ($result) {
             transform: scale(0);
             opacity: 0;
         }
-
         80% {
             transform: scale(1.1);
         }
-
         100% {
             transform: scale(1);
             opacity: 1;
@@ -168,12 +199,10 @@ if ($result) {
             transform: scale(1);
             box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.4);
         }
-
         70% {
             transform: scale(1.1);
             box-shadow: 0 0 0 8px rgba(255, 0, 0, 0);
         }
-
         100% {
             transform: scale(1);
             box-shadow: 0 0 0 0 rgba(255, 0, 0, 0);
@@ -195,13 +224,10 @@ if ($result) {
     }
 
     @keyframes blink {
-
-        0%,
-        100% {
+        0%, 100% {
             opacity: 0.8;
             transform: scale(1);
         }
-
         50% {
             opacity: 0;
             transform: scale(0.5);
@@ -218,12 +244,11 @@ if ($result) {
         0% {
             background-position: 0% 50%;
         }
-
         50% {
             background-position: 100% 50%;
         }
-
         100% {
             background-position: 0% 50%;
         }
+    }
 </style>
