@@ -52,9 +52,11 @@ if (!empty($_SESSION)) {
     <link rel="stylesheet" href="css/style_index.css">
     <link rel="stylesheet" href="css/app.css">
     <link rel="stylesheet" href="css/video_player.css">
+    <link rel="stylesheet" href="css/style_polls.css">
     <link rel="icon" type="image/x-icon" href="images/favicon/favicon_orange.png">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
     <style>
         .post-actions .delete-btn {
             background: none;
@@ -303,6 +305,7 @@ if (!empty($_SESSION)) {
 </head>
 
 <body>
+    <script src="js/polls.js"></script>
     <!-- Confirmation Modal -->
     <div id="confirmationModal" class="modal-overlay" style="display: none; z-index: 1001;">
         <div class="confirmation-modal">
@@ -398,7 +401,6 @@ if (!empty($_SESSION)) {
                             <button type="button" id="uploadImage"><i class="fas fa-image"></i></button>
                             <button type="button"><i class="fas fa-file-alt"></i></button>
                             <button type="button"><i class="fas fa-link"></i></button>
-                            <button type="button"><i class="fas fa-poll"></i></button>
                         </div>
                         <button type="submit" name="publicar" class="publish-btn">Publicar</button>
                     </div>
@@ -463,14 +465,30 @@ if (!empty($_SESSION)) {
                     return $data['count'];
                 }
 
-                $sql = "SELECT p.id_publicacao, p.conteudo, p.data_criacao, p.likes, 
-                        u.id AS id_utilizador, u.nick, 
-                        pr.foto_perfil, pr.ocupacao
-                        FROM publicacoes p
-                        JOIN utilizadores u ON p.id_utilizador = u.id
-                        LEFT JOIN perfis pr ON u.id = pr.id_utilizador
-                        WHERE p.deletado_em = '0000-00-00 00:00:00'
-                        ORDER BY p.data_criacao DESC";
+                // Consulta combinada para posts normais e enquetes
+                $sql = "(
+    SELECT 
+        p.id_publicacao, p.conteudo, p.data_criacao, p.likes, p.tipo,
+        u.id AS id_utilizador, u.nick, 
+        pr.foto_perfil, pr.ocupacao,
+        NULL AS poll_id, NULL AS pergunta, NULL AS data_expiracao, NULL AS total_votos
+    FROM publicacoes p
+    JOIN utilizadores u ON p.id_utilizador = u.id
+    LEFT JOIN perfis pr ON u.id = pr.id_utilizador
+    WHERE p.deletado_em = '0000-00-00 00:00:00'
+) UNION ALL (
+    SELECT 
+        pub.id_publicacao, pub.conteudo, pub.data_criacao, pub.likes, pub.tipo,
+        u.id AS id_utilizador, u.nick, 
+        pr.foto_perfil, pr.ocupacao,
+        p.id AS poll_id, p.pergunta, p.data_expiracao, p.total_votos
+    FROM polls p
+    JOIN publicacoes pub ON p.publicacao_id = pub.id_publicacao
+    JOIN utilizadores u ON pub.id_utilizador = u.id
+    LEFT JOIN perfis pr ON u.id = pr.id_utilizador
+    WHERE pub.deletado_em = '0000-00-00 00:00:00'
+)
+ORDER BY data_criacao DESC";
 
                 $resultado = mysqli_query($con, $sql);
 
@@ -479,6 +497,7 @@ if (!empty($_SESSION)) {
                         $foto = $linha['foto_perfil'] ?: 'default-profile.jpg';
                         $ocupacao = $linha['ocupacao'] ?: 'Utilizador';
                         $publicacaoId = $linha['id_publicacao'];
+                        $isPoll = $linha['tipo'] === 'poll';
 
                         // Verificar se o usuário logado já deu like
                         $likedClass = '';
@@ -499,9 +518,6 @@ if (!empty($_SESSION)) {
                                 $savedClass = 'saved';
                             }
                         }
-
-                        // Buscar imagens da publicação
-                        $images = getPostImages($con, $publicacaoId);
                         ?>
 
                         <article class="post" data-post-id="<?php echo $publicacaoId; ?>">
@@ -520,12 +536,25 @@ if (!empty($_SESSION)) {
                                     <span
                                         class="timestamp"><?php echo date('d-m-Y H:i', strtotime($linha['data_criacao'])); ?></span>
                                 </div>
-
                             </div>
+
                             <div class="post-content">
+                                <?php if ($isPoll): ?>
+                                    <div class="poll-container" data-poll-id="<?php echo $linha['poll_id']; ?>">
+                                        <div class="poll-question"><?php echo htmlspecialchars($linha['pergunta']); ?></div>
+                                        <div class="poll-loading">
+                                            <i class="fas fa-spinner"></i> Carregando enquete...
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+
+                                <!-- Conteúdo normal do post -->
                                 <p><?php echo nl2br(makeLinksClickable($linha['conteudo'])); ?></p>
 
-                                <?php if (!empty($images)): ?>
+                                <?php
+                                // Buscar imagens apenas para posts normais
+                                $images = getPostImages($con, $publicacaoId);
+                                if (!empty($images)): ?>
                                     <div class="post-images">
                                         <?php
                                         $imageCount = count($images);
@@ -571,22 +600,28 @@ if (!empty($_SESSION)) {
                                     </div>
                                 <?php endif; ?>
                             </div>
+
                             <div class="post-actions">
-                                <button class="like-btn <?php echo $likedClass; ?>"
-                                    data-publicacao-id="<?php echo $publicacaoId; ?>">
-                                    <i class="fas fa-thumbs-up"></i>
-                                    <span class="like-count"><?php echo $linha['likes']; ?></span>
-                                </button>
-                                <button class="comment-btn" onclick="openCommentsModal(<?php echo $linha['id_publicacao']; ?>)">
+                                <?php if (!$isPoll): ?>
+                                    <button class="like-btn <?php echo $likedClass; ?>"
+                                        data-publicacao-id="<?php echo $publicacaoId; ?>">
+                                        <i class="fas fa-thumbs-up"></i>
+                                        <span class="like-count"><?php echo $linha['likes']; ?></span>
+                                    </button>
+                                <?php endif; ?>
+
+                                <button class="comment-btn" onclick="openCommentsModal(<?php echo $publicacaoId; ?>)">
                                     <i class="fas fa-comment"></i>
-                                    <span
-                                        class="comment-count"><?php echo getCommentCount($con, $linha['id_publicacao']); ?></span>
+                                    <span class="comment-count"><?php echo getCommentCount($con, $publicacaoId); ?></span>
                                 </button>
+
                                 <button><i class="fas fa-share"></i></button>
+
                                 <button class="save-btn <?php echo $savedClass; ?>"
                                     data-publicacao-id="<?php echo $publicacaoId; ?>">
                                     <i class="fas fa-bookmark"></i>
                                 </button>
+
                                 <?php if (isset($_SESSION['id']) && ($_SESSION['id'] == $linha['id_utilizador'] || ($_SESSION['id_tipos_utilizador'] ?? null) == 2)): ?>
                                     <button class="delete-btn" onclick="deletePost(<?php echo $publicacaoId; ?>, this)">
                                         <i class="fas fa-trash"></i>
@@ -622,6 +657,63 @@ if (!empty($_SESSION)) {
     <script src="js/video-player.js"></script>
 
     <script>
+        // Carregar polls após o DOM estar pronto
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('[data-poll-id]').forEach(pollElement => {
+                const pollId = pollElement.dataset.pollId;
+                fetch(`../backend/get_poll_data.php?poll_id=${pollId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            pollElement.innerHTML = `
+                        <div class="poll-question">${data.poll.pergunta}</div>
+                        <div class="poll-options">
+                            ${data.opcoes.map(opcao => `
+                                <div class="poll-option ${data.user_voted || data.poll.expirada ? 'disabled' : ''} ${data.user_voted ? 'voted' : ''}" 
+                                     data-opcao-id="${opcao.id}"
+                                     ${!data.user_voted && !data.poll.expirada ? `onclick="voteInPoll(${pollId}, ${opcao.id})"` : ''}>
+                                    <div class="poll-option-progress" style="width: ${opcao.percentagem}%"></div>
+                                    <div class="poll-option-content">
+                                        <span class="poll-option-text">${opcao.texto}</span>
+                                        ${data.user_voted || data.poll.expirada ? `
+                                            <div class="poll-option-stats">
+                                                <span class="poll-option-percentage">${opcao.percentagem}%</span>
+                                                <span class="poll-option-votes">${opcao.votos} voto${opcao.votos !== 1 ? 's' : ''}</span>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="poll-meta">
+                            <span class="poll-total-votes">${data.poll.total_votos} voto${data.poll.total_votos !== 1 ? 's' : ''}</span>
+                            <span class="poll-time-left ${data.poll.expirada ? 'poll-expired' : ''}">
+                                <i class="fas fa-clock"></i>
+                                ${data.poll.expirada ? 'Poll encerrada' : `Encerra em ${formatTimeLeft(data.poll.data_expiracao)}`}
+                            </span>
+                        </div>
+                    `;
+                        }
+                    });
+            });
+
+            function formatTimeLeft(expirationDate) {
+                const now = new Date();
+                const expDate = new Date(expirationDate);
+                const diff = expDate - now;
+
+                if (diff <= 0) return 'Poll encerrada';
+
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+                return `${hours}h ${minutes}m`;
+            }
+
+            function voteInPoll(pollId, optionId) {
+                // Implementar lógica de voto aqui
+            }
+        });
         document.getElementById('postForm').addEventListener('submit', function (e) {
             const textarea = this.querySelector('textarea[name="conteudo"]');
             const fileInputs = [
