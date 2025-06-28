@@ -475,7 +475,7 @@ if (!empty($_SESSION)) {
     FROM publicacoes p
     JOIN utilizadores u ON p.id_utilizador = u.id
     LEFT JOIN perfis pr ON u.id = pr.id_utilizador
-    WHERE p.deletado_em = '0000-00-00 00:00:00'
+    WHERE p.deletado_em = '0000-00-00 00:00:00' AND p.tipo = 'post'
 ) UNION ALL (
     SELECT 
         pub.id_publicacao, pub.conteudo, pub.data_criacao, pub.likes, pub.tipo,
@@ -540,12 +540,20 @@ ORDER BY data_criacao DESC";
 
                             <div class="post-content">
                                 <?php if ($isPoll): ?>
-                                    <div class="poll-container" data-poll-id="<?php echo $linha['poll_id']; ?>">
-                                        <div class="poll-question"><?php echo htmlspecialchars($linha['pergunta']); ?></div>
-                                        <div class="poll-loading">
-                                            <i class="fas fa-spinner"></i> Carregando enquete...
-                                        </div>
-                                    </div>
+                                    <?php
+                                    // Renderizar a poll usando o PollManager
+                                    $pollData = [
+                                        'poll' => [
+                                            'pergunta' => $linha['pergunta'],
+                                            'data_expiracao' => $linha['data_expiracao'],
+                                            'total_votos' => $linha['total_votos'],
+                                            'expirada' => strtotime($linha['data_expiracao']) < time()
+                                        ],
+                                        'opcoes' => [], // Será carregado via AJAX
+                                        'user_voted' => false // Será verificado via AJAX
+                                    ];
+                                    echo pollManager->renderPoll($linha['poll_id'], $pollData);
+                                    ?>
                                 <?php endif; ?>
 
                                 <!-- Conteúdo normal do post -->
