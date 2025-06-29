@@ -1,115 +1,84 @@
 <?php
 session_start();
-require 'ligabd.php';
+include "ligabd.php";
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['publicar_poll'])) {
-    // Verificar se o usuário está logado
-    if (!isset($_SESSION['id'])) {
-        $_SESSION['erro'] = "Por favor, faça login para publicar.";
-        header('Location: ../frontend/login.php');
-        exit();
-    }
+if (!isset($_SESSION['id'])) {
+    echo json_encode(['success' => false, 'message' => 'Não autenticado']);
+    exit;
+}
 
-    // Sanitizar e validar entrada
-    $conteudo = trim(htmlspecialchars($_POST['conteudo']));
-    $pergunta = trim(htmlspecialchars($_POST['pergunta']));
-    $opcoes = array_filter(array_map('trim', $_POST['opcoes'])); // Remove opções vazias
-    $duracao = intval($_POST['duracao']); // em horas
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode(['success' => false, 'message' => 'Método não permitido']);
+    exit;
+}
 
-    // Validações
-    if (empty($pergunta)) {
-        $_SESSION['erro'] = "A pergunta da enquete é obrigatória.";
-        header('Location: ../frontend/index.php');
-        exit();
-    }
+$pergunta = trim($_POST['pergunta'] ?? '');
+$conteudo = trim($_POST['conteudo'] ?? '');
+$opcoes = $_POST['opcoes'] ?? [];
+$duracao = intval($_POST['duracao'] ?? 24);
 
-    if (count($opcoes) < 2) {
-        $_SESSION['erro'] = "A enquete deve ter pelo menos 2 opções.";
-        header('Location: ../frontend/index.php');
-        exit();
-    }
+// Validações
+if (empty($pergunta)) {
+    echo json_encode(['success' => false, 'message' => 'A pergunta é obrigatória']);
+    exit;
+}
 
-    if (count($opcoes) > 4) {
-        $_SESSION['erro'] = "A enquete pode ter no máximo 4 opções.";
-        header('Location: ../frontend/index.php');
-        exit();
-    }
+if (count($opcoes) < 2) {
+    echo json_encode(['success' => false, 'message' => 'São necessárias pelo menos 2 opções']);
+    exit;
+}
 
-    if ($duracao < 1 || $duracao > 168) { // 1 hora a 7 dias
-        $_SESSION['erro'] = "A duração deve ser entre 1 hora e 7 dias (168 horas).";
-        header('Location: ../frontend/index.php');
-        exit();
-    }
+// Limitar a 4 opções
+$opcoes = array_slice($opcoes, 0, 4);
 
-    try {
-        // Iniciar transação
-        mysqli_begin_transaction($con);
+// Calcular data de expiração
+$dataExpiracao = date('Y-m-d H:i:s', strtotime("+{$duracao} hours"));
 
-        // Inserir publicação
-        $stmt = $con->prepare("
-            INSERT INTO publicacoes 
-            (id_utilizador, conteudo, tipo, data_criacao) 
-            VALUES (?, ?, 'poll', NOW())
-        ");
-        $stmt->bind_param("is", $_SESSION['id'], $conteudo);
-        
-        if (!$stmt->execute()) {
-            throw new Exception("Erro ao criar publicação.");
+// Iniciar transação
+$con->begin_transaction();
+
+try {
+    // 1. Criar a publicação
+    $stmt = $con->prepare("INSERT INTO publicacoes (id_utilizador, conteudo, tipo, data_criacao) 
+                          VALUES (?, ?, 'poll', NOW())");
+    $stmt->bind_param("is", $_SESSION['id'], $conteudo);
+    $stmt->execute();
+    $publicacaoId = $con->insert_id;
+
+    // 2. Criar a poll
+    $stmt = $con->prepare("INSERT INTO polls (publicacao_id, pergunta, data_expiracao, total_votos) 
+                          VALUES (?, ?, ?, 0)");
+    $stmt->bind_param("iss", $publicacaoId, $pergunta, $dataExpiracao);
+    $stmt->execute();
+    $pollId = $con->insert_id;
+
+    // 3. Adicionar opções
+    $stmt = $con->prepare("INSERT INTO poll_opcoes (poll_id, opcao_texto, votos, ordem) 
+                          VALUES (?, ?, 0, ?)");
+    
+    $ordem = 1;
+    foreach ($opcoes as $opcao) {
+        $opcao = trim($opcao);
+        if (!empty($opcao)) {
+            $stmt->bind_param("isi", $pollId, $opcao, $ordem);
+            $stmt->execute();
+            $ordem++;
         }
-
-        $publicacaoId = $stmt->insert_id;
-
-        // Calcular data de expiração
-        $dataExpiracao = date('Y-m-d H:i:s', strtotime("+{$duracao} hours"));
-
-        // Inserir poll
-        $stmtPoll = $con->prepare("
-            INSERT INTO polls 
-            (publicacao_id, pergunta, data_expiracao) 
-            VALUES (?, ?, ?)
-        ");
-        $stmtPoll->bind_param("iss", $publicacaoId, $pergunta, $dataExpiracao);
-        
-        if (!$stmtPoll->execute()) {
-            throw new Exception("Erro ao criar enquete.");
-        }
-
-        $pollId = $stmtPoll->insert_id;
-
-        // Inserir opções
-        $stmtOpcao = $con->prepare("
-            INSERT INTO poll_opcoes 
-            (poll_id, opcao_texto, ordem) 
-            VALUES (?, ?, ?)
-        ");
-
-        foreach ($opcoes as $index => $opcao) {
-            $stmtOpcao->bind_param("isi", $pollId, $opcao, $index);
-            if (!$stmtOpcao->execute()) {
-                throw new Exception("Erro ao criar opções da enquete.");
-            }
-        }
-
-        // Confirmar transação
-        mysqli_commit($con);
-
-        $_SESSION['sucesso'] = "Poll criada com sucesso!";
-        header('Location: ../frontend/index.php');
-        exit();
-
-    } catch (Exception $e) {
-        // Reverter transação em caso de erro
-        mysqli_rollback($con);
-        $_SESSION['erro'] = "Erro: " . $e->getMessage();
-        header('Location: ../frontend/index.php');
-        exit();
-    } finally {
-        if (isset($stmt)) $stmt->close();
-        if (isset($stmtPoll)) $stmtPoll->close();
-        if (isset($stmtOpcao)) $stmtOpcao->close();
     }
-} else {
-    header('Location: ../frontend/index.php');
-    exit();
+
+    $con->commit();
+    
+    echo json_encode([
+        'success' => true,
+        'message' => 'Poll criada com sucesso',
+        'poll_id' => $pollId,
+        'publicacao_id' => $publicacaoId
+    ]);
+} catch (Exception $e) {
+    $con->rollback();
+    echo json_encode([
+        'success' => false,
+        'message' => 'Erro ao criar poll: ' . $e->getMessage()
+    ]);
 }
 ?>
