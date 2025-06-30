@@ -1,14 +1,15 @@
 <?php
 session_start();
-include "../backend/ligabd.php";
+require "../backend/ligabd.php";
 
-$currentUserId = isset($_SESSION['id']) ? $_SESSION['id'] : 0;
-$currentUserType = isset($_SESSION['id_tipos_utilizador']) ? $_SESSION['id_tipos_utilizador'] : 0;
-
+// Verificar se o utilizador está autenticado
 if (!isset($_SESSION["id"])) {
     header("Location: login.php");
-    exit;
+    exit();
 }
+
+$currentUserId = $_SESSION['id'];
+$currentUserType = $_SESSION['id_tipos_utilizador'];
 
 // Função para transformar URLs em links clicáveis
 function makeLinksClickable($text)
@@ -51,61 +52,57 @@ function getPostImages($con, $postId)
 }
 
 // Função para buscar dados da poll
-function getPollData($con, $postId) {
-    $sql = "SELECT p.id, p.pergunta, p.data_expiracao, p.total_votos,
-                   po.id as opcao_id, po.opcao_texto, po.votos, po.ordem
-            FROM polls p
-            LEFT JOIN poll_opcoes po ON p.id = po.poll_id
-            WHERE p.publicacao_id = ?
-            ORDER BY po.ordem ASC";
-    
-    $stmt = $con->prepare($sql);
-    $stmt->bind_param("i", $postId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    // Sempre retorna array com mesma estrutura
-    $pollData = [
-        'poll' => null,
-        'opcoes' => []
+function getPollData($con, $postId)
+{
+    // Verificar se a publicação é uma poll
+    $sqlCheck = "SELECT tipo FROM publicacoes WHERE id_publicacao = ?";
+    $stmtCheck = $con->prepare($sqlCheck);
+    $stmtCheck->bind_param("i", $postId);
+    $stmtCheck->execute();
+    $result = $stmtCheck->get_result();
+    $post = $result->fetch_assoc();
+
+    if (!$post || $post['tipo'] !== 'poll') {
+        return null;
+    }
+
+    // Buscar dados da poll
+    $sqlPoll = "SELECT p.id, p.pergunta, p.data_expiracao, p.total_votos
+                FROM polls p
+                WHERE p.publicacao_id = ?";
+    $stmtPoll = $con->prepare($sqlPoll);
+    $stmtPoll->bind_param("i", $postId);
+    $stmtPoll->execute();
+    $pollResult = $stmtPoll->get_result();
+
+    if ($pollResult->num_rows === 0) {
+        return null;
+    }
+
+    $poll = $pollResult->fetch_assoc();
+
+    // Buscar opções da poll
+    $sqlOpcoes = "SELECT id, opcao_texto, votos FROM poll_opcoes 
+                  WHERE poll_id = ? ORDER BY ordem ASC";
+    $stmtOpcoes = $con->prepare($sqlOpcoes);
+    $stmtOpcoes->bind_param("i", $poll['id']);
+    $stmtOpcoes->execute();
+    $opcoesResult = $stmtOpcoes->get_result();
+
+    $opcoes = [];
+    while ($row = $opcoesResult->fetch_assoc()) {
+        $opcoes[] = $row;
+    }
+
+    return [
+        'poll' => $poll,
+        'opcoes' => $opcoes
     ];
-    
-    if ($result->num_rows === 0) {
-        return $pollData;
-    }
-    
-    while ($row = $result->fetch_assoc()) {
-        if (!$pollData['poll']) {
-            $pollData['poll'] = [
-                'id' => $row['id'],
-                'pergunta' => $row['pergunta'],
-                'data_expiracao' => $row['data_expiracao'],
-                'total_votos' => $row['total_votos'],
-                'expirada' => strtotime($row['data_expiracao']) < time()
-            ];
-        }
-        
-        if ($row['opcao_id']) {
-            $percentagem = $pollData['poll']['total_votos'] > 0 ? 
-                round(($row['votos'] / $pollData['poll']['total_votos']) * 100, 1) : 0;
-            
-            $pollData['opcoes'][] = [
-                'id' => $row['opcao_id'],
-                'texto' => $row['opcao_texto'],
-                'votos' => $row['votos'],
-                'percentagem' => $percentagem
-            ];
-        }
-    }
-    
-    return $pollData;
 }
 
-// Função para verificar se o usuário já votou
+// Função para verificar se o usuário já votou na poll
 function hasUserVoted($con, $pollId, $userId)
 {
-    if (!$userId) return false;
-    
     $sql = "SELECT id FROM poll_votos WHERE poll_id = ? AND utilizador_id = ?";
     $stmt = $con->prepare($sql);
     $stmt->bind_param("ii", $pollId, $userId);
@@ -120,7 +117,7 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt">
 
 <head>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
@@ -224,55 +221,6 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                 transform: translateY(0);
             }
         }
-
-        .post {
-            transition: all 0.3s ease;
-        }
-
-        .post.removing {
-            transform: translateX(-100%);
-            opacity: 0;
-            height: 0;
-            padding: 0;
-            margin: 0;
-            overflow: hidden;
-        }
-
-        /* Toast Notification - Igual ao index.php */
-        /* Toast Notification - ATUALIZADO */
-        #toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--color-primary);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            display: none;
-            /* Adicionado: começa oculto */
-            align-items: center;
-            gap: 12px;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            pointer-events: none;
-            /* Impede interação acidental */
-        }
-
-        #toast.show {
-            opacity: 1;
-        }
-
-        .toast-icon {
-            font-size: 1.2rem;
-        }
-
-        .toast-content p {
-            margin: 0;
-            font-size: 0.9rem;
-        }
     </style>
 </head>
 
@@ -338,31 +286,27 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                         alt="User" class="profile-pic">
                     <form action="../backend/criar_publicacao.php" method="POST" enctype="multipart/form-data">
                         <textarea name="conteudo" placeholder="O que está a acontecer?"></textarea>
-                    </form>
                 </div>
                 <div class="post-actions">
                     <button type="button" onclick="document.getElementById('media0').click()">
                         <i class="fas fa-image"></i>
                     </button>
-                    <button type="button" onclick="document.getElementById('video0').click()">
+                    <button type="button" onclick="document.getElementById('media0').click()">
                         <i class="fas fa-video"></i>
                     </button>
                     <button type="button" class="poll-toggle-btn" onclick="togglePollForm()">
                         <i class="fas fa-poll"></i>
                     </button>
-                    <button type="submit" form="postForm" class="publish-btn">Publicar</button>
+                    <button type="submit" name="publicar" class="publish-btn">Publicar</button>
                 </div>
 
                 <!-- Hidden file inputs -->
-                <form id="postForm" action="../backend/criar_publicacao.php" method="POST" enctype="multipart/form-data" style="display: none;">
-                    <input type="hidden" name="conteudo" id="hiddenContent">
-                    <?php for ($i = 0; $i < 5; $i++): ?>
-                        <input type="file" name="media<?php echo $i; ?>" id="media<?php echo $i; ?>" accept="image/*,video/*" style="display: none;" onchange="handleFileSelect(this, <?php echo $i; ?>)">
-                    <?php endfor; ?>
+                <input type="file" id="media0" name="media0" accept="image/*,video/*" style="display: none;" multiple>
+                <input type="file" id="media1" name="media1" accept="image/*,video/*" style="display: none;">
+                <input type="file" id="media2" name="media2" accept="image/*,video/*" style="display: none;">
+                <input type="file" id="media3" name="media3" accept="image/*,video/*" style="display: none;">
+                <input type="file" id="media4" name="media4" accept="image/*,video/*" style="display: none;">
                 </form>
-
-                <!-- Media preview area -->
-                <div id="mediaPreview" style="display: none; margin-top: 15px;"></div>
             </div>
 
             <!-- Poll Form -->
@@ -380,26 +324,26 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                 <form id="pollCreationForm" action="../backend/criar_publicacao_poll.php" method="POST">
                     <div class="poll-form-group">
                         <label class="poll-form-label">Pergunta da Poll *</label>
-                        <input type="text" name="pergunta" class="poll-form-input" 
-                               placeholder="Qual é a sua pergunta?" required maxlength="500">
+                        <input type="text" name="pergunta" class="poll-form-input" placeholder="Qual é a sua pergunta?"
+                            required maxlength="500">
                     </div>
 
                     <div class="poll-form-group">
                         <label class="poll-form-label">Descrição (opcional)</label>
-                        <textarea name="conteudo" class="poll-form-textarea" 
-                                placeholder="Adicione uma descrição à sua poll..."></textarea>
+                        <textarea name="conteudo" class="poll-form-textarea"
+                            placeholder="Adicione uma descrição à sua poll..."></textarea>
                     </div>
 
                     <div class="poll-form-group">
                         <label class="poll-form-label">Opções *</label>
                         <div class="poll-options-form" id="pollOptionsContainer">
                             <div class="poll-option-input-group">
-                                <input type="text" name="opcoes[]" class="poll-form-input poll-option-input" 
-                                       placeholder="Opção 1" required maxlength="200">
+                                <input type="text" name="opcoes[]" class="poll-form-input poll-option-input"
+                                    placeholder="Opção 1" required maxlength="200">
                             </div>
                             <div class="poll-option-input-group">
-                                <input type="text" name="opcoes[]" class="poll-form-input poll-option-input" 
-                                       placeholder="Opção 2" required maxlength="200">
+                                <input type="text" name="opcoes[]" class="poll-form-input poll-option-input"
+                                    placeholder="Opção 2" required maxlength="200">
                             </div>
                         </div>
                         <button type="button" class="poll-add-option" id="addOptionBtn" onclick="addPollOption()">
@@ -411,8 +355,8 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                     <div class="poll-form-group">
                         <label class="poll-form-label">Duração da poll</label>
                         <div class="poll-duration-group">
-                            <input type="number" name="duracao" class="poll-form-input poll-duration-input" 
-                                   value="24" min="1" max="168" required>
+                            <input type="number" name="duracao" class="poll-form-input poll-duration-input" value="24"
+                                min="1" max="168" required>
                             <span class="poll-duration-unit">horas</span>
                         </div>
                         <small style="color: var(--text-muted); margin-top: 4px; display: block;">
@@ -455,7 +399,7 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                         // Verificar se o usuário logado já deu like
                         $likedClass = '';
                         $checkSql = "SELECT * FROM publicacao_likes 
-                                     WHERE publicacao_id = $publicacaoId AND utilizador_id = $userId";
+                                     WHERE publicacao_id = $publicacaoId AND utilizador_id = $currentUserId";
                         $checkResult = mysqli_query($con, $checkSql);
                         if (mysqli_num_rows($checkResult) > 0) {
                             $likedClass = 'liked';
@@ -463,24 +407,19 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
 
                         // Verificar se está salvo
                         $savedClass = '';
-                        if (isPostSaved($con, $userId, $publicacaoId)) {
+                        if (isPostSaved($con, $currentUserId, $publicacaoId)) {
                             $savedClass = 'saved';
                         }
 
                         // Buscar imagens da publicação
                         $images = getPostImages($con, $publicacaoId);
-                        
 
-// Buscar dados da poll se for uma poll
-$pollData = null;
-$userVoted = false;
-if ($linha['tipo'] === 'poll') {
-    $pollData = getPollData($con, $publicacaoId);
-    if (!empty($pollData['poll'])) { // Verifica se poll existe e não é null
-        $userVoted = hasUserVoted($con, $pollData['poll']['id'], $userId);
-    }
-}
-?>
+                        // Buscar dados da poll se for uma poll
+                        $pollData = null;
+                        if ($linha['tipo'] === 'poll') {
+                            $pollData = getPollData($con, $publicacaoId);
+                        }
+                        ?>
                         <article class="post" data-post-id="<?php echo $publicacaoId; ?>">
                             <div class="post-header">
                                 <a href="perfil.php?id=<?php echo $linha['id_utilizador']; ?>">
@@ -499,63 +438,64 @@ if ($linha['tipo'] === 'poll') {
                                 </div>
                             </div>
                             <div class="post-content">
-                                <p><?php echo nl2br(makeLinksClickable($linha['conteudo'])); ?></p>
+                                <?php if (!empty($linha['conteudo'])): ?>
+                                    <p><?php echo nl2br(makeLinksClickable($linha['conteudo'])); ?></p>
+                                <?php endif; ?>
 
-                                <!-- Poll Content - MODIFICADO para verificação segura -->
-    <?php if ($linha['tipo'] === 'poll'): ?>
-        <?php 
-        $pollData = getPollData($con, $publicacaoId);
-        $userVoted = false;
-        if ($pollData['poll']) { // Verifica se poll existe
-            $userVoted = hasUserVoted($con, $pollData['poll']['id'], $userId);
-        ?>
-        <div class="poll-container" data-poll-id="<?php echo $pollData['poll']['id']; ?>">
-            <div class="poll-question"><?php echo htmlspecialchars($pollData['poll']['pergunta']); ?></div>
-            
-            <div class="poll-options">
-                <?php foreach ($pollData['opcoes'] as $opcao): ?>
-                    <div class="poll-option <?php echo ($userVoted || $pollData['poll']['expirada']) ? 'disabled voted' : ''; ?>" 
-                         data-opcao-id="<?php echo $opcao['id']; ?>"
-                         <?php if (!$userVoted && !$pollData['poll']['expirada']): ?>
-                             onclick="voteInPoll(<?php echo $pollData['poll']['id']; ?>, <?php echo $opcao['id']; ?>)"
-                         <?php endif; ?>>
-                        
-                        <?php if ($userVoted || $pollData['poll']['expirada']): ?>
-                            <div class="poll-option-progress" style="width: <?php echo $opcao['percentagem']; ?>%"></div>
-                        <?php endif; ?>
-                        
-                        <div class="poll-option-content">
-                            <span class="poll-option-text"><?php echo htmlspecialchars($opcao['texto']); ?></span>
-                            <?php if ($userVoted || $pollData['poll']['expirada']): ?>
-                                <div class="poll-option-stats">
-                                    <span class="poll-option-percentage"><?php echo $opcao['percentagem']; ?>%</span>
-                                    <span class="poll-option-votes"><?php echo $opcao['votos']; ?> voto<?php echo $opcao['votos'] !== 1 ? 's' : ''; ?></span>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-            
-            <div class="poll-meta">
-                <span class="poll-total-votes"><?php echo $pollData['poll']['total_votos']; ?> voto<?php echo $pollData['poll']['total_votos'] !== 1 ? 's' : ''; ?></span>
-                <span class="poll-time-left <?php echo $pollData['poll']['expirada'] ? 'poll-expired' : ''; ?>">
-                    <i class="fas fa-clock"></i>
-                    <?php 
-                    if ($pollData['poll']['expirada']) {
-                        echo 'Poll encerrada';
-                    } else {
-                        $timeLeft = strtotime($pollData['poll']['data_expiracao']) - time();
-                        $hours = floor($timeLeft / 3600);
-                        $minutes = floor(($timeLeft % 3600) / 60);
-                        echo "Encerra em {$hours}h {$minutes}m";
-                    }
-                    ?>
-                </span>
-            </div>
-        </div>
-        <?php } // fecha o if ($pollData['poll']) ?>
-    <?php endif; ?>
+                                <?php if ($linha['tipo'] === 'poll' && $pollData !== null): ?>
+                                    <!-- Poll Content -->
+                                    <div class="poll-container" data-poll-id="<?php echo $pollData['poll']['id']; ?>">
+                                        <div class="poll-question"><?php echo htmlspecialchars($pollData['poll']['pergunta']); ?>
+                                        </div>
+
+                                        <div class="poll-options">
+                                            <?php
+                                            $hasVoted = hasUserVoted($con, $pollData['poll']['id'], $currentUserId);
+                                            $isExpired = strtotime($pollData['poll']['data_expiracao']) < time();
+
+                                            foreach ($pollData['opcoes'] as $opcao):
+                                                $percentage = $pollData['poll']['total_votos'] > 0 ?
+                                                    round(($opcao['votos'] / $pollData['poll']['total_votos']) * 100, 1) : 0;
+                                                ?>
+                                                <div class="poll-option <?php echo ($hasVoted || $isExpired) ? 'disabled voted' : ''; ?>"
+                                                    data-opcao-id="<?php echo $opcao['id']; ?>" <?php if (!$hasVoted && !$isExpired): ?>
+                                                        onclick="voteInPoll(<?php echo $pollData['poll']['id']; ?>, <?php echo $opcao['id']; ?>)"
+                                                    <?php endif; ?>>
+                                                    <div class="poll-option-progress" style="width: <?php echo $percentage; ?>%"></div>
+                                                    <div class="poll-option-content">
+                                                        <span
+                                                            class="poll-option-text"><?php echo htmlspecialchars($opcao['opcao_texto']); ?></span>
+                                                        <?php if ($hasVoted || $isExpired): ?>
+                                                            <div class="poll-option-stats">
+                                                                <span class="poll-option-percentage"><?php echo $percentage; ?>%</span>
+                                                                <span class="poll-option-votes"><?php echo $opcao['votos']; ?>
+                                                                    voto<?php echo $opcao['votos'] !== 1 ? 's' : ''; ?></span>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+
+                                        <div class="poll-meta">
+                                            <span class="poll-total-votes"><?php echo $pollData['poll']['total_votos']; ?>
+                                                voto<?php echo $pollData['poll']['total_votos'] !== 1 ? 's' : ''; ?></span>
+                                            <span class="poll-time-left <?php echo $isExpired ? 'poll-expired' : ''; ?>">
+                                                <i class="fas fa-clock"></i>
+                                                <?php
+                                                if ($isExpired) {
+                                                    echo 'Poll encerrada';
+                                                } else {
+                                                    $timeLeft = strtotime($pollData['poll']['data_expiracao']) - time();
+                                                    $hours = floor($timeLeft / 3600);
+                                                    $minutes = floor(($timeLeft % 3600) / 60);
+                                                    echo "Encerra em {$hours}h {$minutes}m";
+                                                }
+                                                ?>
+                                            </span>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
 
                                 <?php if (!empty($images)): ?>
                                     <div class="post-images">
@@ -619,7 +559,7 @@ if ($linha['tipo'] === 'poll') {
                                     data-publicacao-id="<?php echo $publicacaoId; ?>">
                                     <i class="fas fa-bookmark"></i>
                                 </button>
-                                <?php if ($_SESSION['id'] == $linha['id_utilizador'] || $_SESSION['id_tipos_utilizador'] == 2): ?>
+                                <?php if ($currentUserId == $linha['id_utilizador'] || $currentUserType == 2): ?>
                                     <button class="delete-btn" onclick="deletePost(<?php echo $publicacaoId; ?>, this)">
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -649,17 +589,20 @@ if ($linha['tipo'] === 'poll') {
 
     <!-- Include Video Player JavaScript -->
     <script src="js/video-player.js"></script>
+    <script src="js/polls.js"></script>
 
     <script>
-        // Poll functionality
+        // Variáveis globais para controle da confirmação
+        let pendingDelete = {
+            postId: null,
+            element: null,
+            type: null
+        };
+
+        // Poll form management
         let isPollFormVisible = false;
-        let selectedFiles = [];
 
         function togglePollForm() {
-            const pollForm = document.getElementById('pollForm');
-            const createPost = document.querySelector('.create-post');
-            const pollBtn = document.querySelector('.poll-toggle-btn');
-
             if (isPollFormVisible) {
                 hidePollForm();
             } else {
@@ -670,24 +613,22 @@ if ($linha['tipo'] === 'poll') {
         function showPollForm() {
             const pollForm = document.getElementById('pollForm');
             const createPost = document.querySelector('.create-post');
-            const pollBtn = document.querySelector('.poll-toggle-btn');
+            const toggleBtn = document.querySelector('.poll-toggle-btn');
 
             pollForm.style.display = 'block';
             createPost.style.display = 'none';
-            pollBtn.classList.add('active');
-            pollBtn.innerHTML = '<i class="fas fa-times"></i>';
+            toggleBtn.innerHTML = '<i class="fas fa-times"></i>';
             isPollFormVisible = true;
         }
 
         function hidePollForm() {
             const pollForm = document.getElementById('pollForm');
             const createPost = document.querySelector('.create-post');
-            const pollBtn = document.querySelector('.poll-toggle-btn');
+            const toggleBtn = document.querySelector('.poll-toggle-btn');
 
             pollForm.style.display = 'none';
             createPost.style.display = 'block';
-            pollBtn.classList.remove('active');
-            pollBtn.innerHTML = '<i class="fas fa-poll"></i>';
+            toggleBtn.innerHTML = '<i class="fas fa-poll"></i>';
             isPollFormVisible = false;
 
             // Reset form
@@ -698,7 +639,7 @@ if ($linha['tipo'] === 'poll') {
         function addPollOption() {
             const container = document.getElementById('pollOptionsContainer');
             const currentOptions = container.querySelectorAll('.poll-option-input-group');
-            
+
             if (currentOptions.length >= 4) {
                 showToast('Máximo de 4 opções permitidas');
                 return;
@@ -721,7 +662,7 @@ if ($linha['tipo'] === 'poll') {
         function removePollOption(button) {
             const container = document.getElementById('pollOptionsContainer');
             const currentOptions = container.querySelectorAll('.poll-option-input-group');
-            
+
             if (currentOptions.length <= 2) {
                 showToast('Mínimo de 2 opções necessárias');
                 return;
@@ -736,7 +677,7 @@ if ($linha['tipo'] === 'poll') {
             const container = document.getElementById('pollOptionsContainer');
             const addBtn = document.getElementById('addOptionBtn');
             const currentOptions = container.querySelectorAll('.poll-option-input-group');
-            
+
             if (addBtn) {
                 addBtn.disabled = currentOptions.length >= 4;
             }
@@ -745,7 +686,7 @@ if ($linha['tipo'] === 'poll') {
         function updatePlaceholders() {
             const container = document.getElementById('pollOptionsContainer');
             const inputs = container.querySelectorAll('.poll-option-input');
-            
+
             inputs.forEach((input, index) => {
                 input.placeholder = `Opção ${index + 1}`;
             });
@@ -754,206 +695,44 @@ if ($linha['tipo'] === 'poll') {
         function resetPollOptions() {
             const container = document.getElementById('pollOptionsContainer');
             const options = container.querySelectorAll('.poll-option-input-group');
-            
-            // Remove extra options, keep only first 2
+
+            // Remove extra options, keep only 2
             for (let i = options.length - 1; i >= 2; i--) {
                 options[i].remove();
             }
-            
+
             updateAddButton();
             updatePlaceholders();
         }
 
         // Vote in poll function
-        // Atualize a função voteInPoll para esta versão melhorada
-async function voteInPoll(pollId, opcaoId) {
-    try {
-        // Mostrar feedback visual imediato
-        const pollContainer = document.querySelector(`.poll-container[data-poll-id="${pollId}"]`);
-        if (!pollContainer) return;
-        
-        // Desativar todas as opções para evitar múltiplos cliques
-        const options = pollContainer.querySelectorAll('.poll-option');
-        options.forEach(opt => {
-            opt.classList.add('disabled');
-            opt.style.pointerEvents = 'none';
-        });
-        
-        // Adicionar classe de carregamento
-        const selectedOption = pollContainer.querySelector(`.poll-option[data-opcao-id="${opcaoId}"]`);
-        if (selectedOption) {
-            selectedOption.classList.add('voting');
-        }
+        async function voteInPoll(pollId, opcaoId) {
+            try {
+                const formData = new FormData();
+                formData.append('poll_id', pollId);
+                formData.append('opcao_id', opcaoId);
 
-        const formData = new FormData();
-        formData.append('poll_id', pollId);
-        formData.append('opcao_id', opcaoId);
+                const response = await fetch('../backend/votar_poll.php', {
+                    method: 'POST',
+                    body: formData
+                });
 
-        const response = await fetch('../backend/votar_poll.php', {
-            method: 'POST',
-            body: formData
-        });
+                const data = await response.json();
 
-        const data = await response.json();
-
-        if (data.success) {
-            // Recarregar apenas a poll em vez de toda a página
-            await updatePollResults(pollId);
-        } else {
-            showToast(data.message || 'Erro ao votar');
-            // Reativar as opções em caso de erro
-            options.forEach(opt => {
-                opt.classList.remove('disabled');
-                opt.style.pointerEvents = '';
-            });
-            if (selectedOption) {
-                selectedOption.classList.remove('voting');
-            }
-        }
-    } catch (error) {
-        console.error('Erro ao votar:', error);
-        showToast('Erro de conexão');
-    }
-}
-
-// Nova função para atualizar os resultados da poll via AJAX
-async function updatePollResults(pollId) {
-    try {
-        const response = await fetch(`../backend/get_poll_results.php?poll_id=${pollId}`);
-        const data = await response.json();
-        
-        if (data.success) {
-            const pollContainer = document.querySelector(`.poll-container[data-poll-id="${pollId}"]`);
-            if (!pollContainer) return;
-            
-            // Atualizar contagem total de votos
-            const totalVotesEl = pollContainer.querySelector('.poll-total-votes');
-            if (totalVotesEl) {
-                totalVotesEl.textContent = `${data.total_votos} voto${data.total_votos !== 1 ? 's' : ''}`;
-            }
-            
-            // Atualizar cada opção
-            data.opcoes.forEach(opcao => {
-                const optionEl = pollContainer.querySelector(`.poll-option[data-opcao-id="${opcao.id}"]`);
-                if (optionEl) {
-                    // Adicionar barra de progresso
-                    let progressBar = optionEl.querySelector('.poll-option-progress');
-                    if (!progressBar) {
-                        progressBar = document.createElement('div');
-                        progressBar.className = 'poll-option-progress';
-                        optionEl.insertBefore(progressBar, optionEl.firstChild);
-                    }
-                    progressBar.style.width = `${opcao.percentagem}%`;
-                    
-                    // Atualizar estatísticas
-                    let statsEl = optionEl.querySelector('.poll-option-stats');
-                    if (!statsEl) {
-                        statsEl = document.createElement('div');
-                        statsEl.className = 'poll-option-stats';
-                        
-                        const percentageEl = document.createElement('span');
-                        percentageEl.className = 'poll-option-percentage';
-                        
-                        const votesEl = document.createElement('span');
-                        votesEl.className = 'poll-option-votes';
-                        
-                        statsEl.appendChild(percentageEl);
-                        statsEl.appendChild(votesEl);
-                        
-                        const contentEl = optionEl.querySelector('.poll-option-content');
-                        if (contentEl) {
-                            contentEl.appendChild(statsEl);
-                        }
-                    }
-                    
-                    const percentageEl = statsEl.querySelector('.poll-option-percentage');
-                    const votesEl = statsEl.querySelector('.poll-option-votes');
-                    
-                    if (percentageEl) percentageEl.textContent = `${opcao.percentagem}%`;
-                    if (votesEl) votesEl.textContent = `${opcao.votos} voto${opcao.votos !== 1 ? 's' : ''}`;
-                    
-                    // Marcar como votado
-                    optionEl.classList.add('voted');
+                if (data.success) {
+                    showToast('Voto registado com sucesso!');
+                    // Reload the page to show updated results
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } else {
+                    showToast(data.message || 'Erro ao votar');
                 }
-            });
-            
-            // Atualizar status de expiração se necessário
-            const timeLeftEl = pollContainer.querySelector('.poll-time-left');
-            if (timeLeftEl && data.expirada) {
-                timeLeftEl.textContent = 'Poll encerrada';
-                timeLeftEl.classList.add('poll-expired');
+            } catch (error) {
+                console.error('Erro ao votar:', error);
+                showToast('Erro de conexão');
             }
         }
-    } catch (error) {
-        console.error('Erro ao atualizar resultados:', error);
-    }
-}
-
-        // Regular post functionality
-        let mediaCount = 0;
-
-        function handleFileSelect(input, index) {
-            const file = input.files[0];
-            if (!file) return;
-
-            selectedFiles[index] = file;
-            updateMediaPreview();
-        }
-
-        function updateMediaPreview() {
-            const preview = document.getElementById('mediaPreview');
-            preview.innerHTML = '';
-            
-            let hasFiles = false;
-            selectedFiles.forEach((file, index) => {
-                if (file) {
-                    hasFiles = true;
-                    const div = document.createElement('div');
-                    div.style.cssText = 'display: inline-block; margin: 5px; position: relative;';
-                    
-                    if (file.type.startsWith('image/')) {
-                        const img = document.createElement('img');
-                        img.src = URL.createObjectURL(file);
-                        img.style.cssText = 'width: 100px; height: 100px; object-fit: cover; border-radius: 8px;';
-                        div.appendChild(img);
-                    } else if (file.type.startsWith('video/')) {
-                        const video = document.createElement('video');
-                        video.src = URL.createObjectURL(file);
-                        video.style.cssText = 'width: 100px; height: 100px; object-fit: cover; border-radius: 8px;';
-                        video.muted = true;
-                        div.appendChild(video);
-                    }
-                    
-                    const removeBtn = document.createElement('button');
-                    removeBtn.innerHTML = '×';
-                    removeBtn.style.cssText = 'position: absolute; top: -5px; right: -5px; background: red; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer;';
-                    removeBtn.onclick = () => removeMedia(index);
-                    div.appendChild(removeBtn);
-                    
-                    preview.appendChild(div);
-                }
-            });
-            
-            preview.style.display = hasFiles ? 'block' : 'none';
-        }
-
-        function removeMedia(index) {
-            selectedFiles[index] = null;
-            document.getElementById(`media${index}`).value = '';
-            updateMediaPreview();
-        }
-
-        // Sync textarea content
-        document.querySelector('.create-post textarea').addEventListener('input', function() {
-            document.getElementById('hiddenContent').value = this.value;
-        });
-
-        // Variáveis globais para controle da confirmação
-        let pendingDelete = {
-            postId: null,
-            element: null,
-            type: null // 'post' ou 'comment'
-        };
 
         // Função para apagar publicação com modal de confirmação
         function deletePost(postId, element) {
@@ -976,19 +755,11 @@ async function updatePollResults(pollId) {
                         .then(response => response.json())
                         .then(data => {
                             if (data.success) {
-                                // Remove o elemento da publicação do DOM com animação
                                 element.closest('.post').style.opacity = '0';
                                 element.closest('.post').style.transform = 'translateX(-100px)';
                                 setTimeout(() => {
                                     element.closest('.post').remove();
-
-                                    // Verifica se não há mais posts
-                                    const postsContainer = document.querySelector('.posts');
-                                    if (postsContainer.children.length === 0) {
-                                        postsContainer.innerHTML = '<p class="no-posts">Nenhuma publicação ainda. Seja o primeiro a publicar!</p>';
-                                    }
                                 }, 300);
-
                                 showToast('Publicação apagada com sucesso');
                             } else {
                                 showToast('Erro ao apagar publicação');
@@ -1003,50 +774,46 @@ async function updatePollResults(pollId) {
         }
 
         // Função para apagar comentário com modal de confirmação
-       function deleteComment(commentId, element) {
-    pendingDelete = {
-        id: commentId,
-        element: element,
-        type: 'comment'
-    };
+        function deleteComment(commentId, element) {
+            pendingDelete = {
+                commentId,
+                element,
+                type: 'comment'
+            };
 
-    document.getElementById('confirmationMessage').textContent = 'Tem a certeza que deseja apagar este comentário?';
-    showConfirmation(function (confirmed) {
-        if (confirmed) {
-            fetch('../backend/delete_comment.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `id_comentario=${commentId}`
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Remove o elemento do comentário do DOM
-                        element.closest('.comment-item').remove();
-                        showToast('Comentário apagado com sucesso');
+            document.getElementById('confirmationMessage').textContent = 'Tem a certeza que deseja apagar este comentário?';
+            showConfirmation(function (confirmed) {
+                if (confirmed) {
+                    fetch('../backend/delete_comment.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `id_comentario=${commentId}`
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                element.closest('.comment-item').remove();
+                                showToast('Comentário apagado com sucesso');
 
-                        // Atualiza a contagem de comentários - usando a variável global currentPostId
-                        if (currentPostId) {
-                            const commentCount = document.querySelector(`.comment-btn[onclick*="${currentPostId}"] .comment-count`);
-                            if (commentCount) {
-                                commentCount.textContent = parseInt(commentCount.textContent) - 1;
+                                const commentCount = document.querySelector(`.comment-btn[onclick*="${currentPostId}"] .comment-count`);
+                                if (commentCount) {
+                                    commentCount.textContent = parseInt(commentCount.textContent) - 1;
+                                }
+                            } else {
+                                showToast('Erro ao apagar comentário');
                             }
-                        }
-                    } else {
-                        showToast('Erro ao apagar comentário');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showToast('Erro ao apagar comentário');
-                });
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            showToast('Erro ao apagar comentário');
+                        });
+                }
+            });
         }
-    });
-}
 
-        // Função para mostrar o modal de confirmação (reutilizável)
+        // Função para mostrar o modal de confirmação
         function showConfirmation(callback) {
             const modal = document.getElementById('confirmationModal');
             const confirmBtn = document.getElementById('confirmAction');
@@ -1055,7 +822,6 @@ async function updatePollResults(pollId) {
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
 
-            // Limpa listeners anteriores
             confirmBtn.onclick = null;
             cancelBtn.onclick = null;
 
@@ -1072,13 +838,8 @@ async function updatePollResults(pollId) {
             };
         }
 
-        // Corrigir o modal de comentários que abre automaticamente
-        // Remova qualquer chamada automática para openCommentsModal()
         document.addEventListener('DOMContentLoaded', function () {
-            // Inicializações aqui
             initializeVideoThumbnails();
-
-            // Garante que o modal de comentários está fechado
             document.getElementById('commentsModal').style.display = 'none';
         });
 
@@ -1253,32 +1014,18 @@ async function updatePollResults(pollId) {
             const toastMessage = document.getElementById('toast-message');
             toastMessage.textContent = message;
 
-            // Reset do estado do toast
             toast.style.display = 'flex';
-            toast.classList.remove('show');
-
-            // Forçar recálculo do layout para permitir animação
-            void toast.offsetHeight;
-
-            // Animar a entrada
             setTimeout(() => {
                 toast.classList.add('show');
             }, 10);
 
-            // Esconder após 3 segundos
             setTimeout(() => {
                 toast.classList.remove('show');
                 setTimeout(() => {
                     toast.style.display = 'none';
-                }, 300); // Tempo da transição de saída
+                }, 300);
             }, 3000);
         }
-
-        // Inicialização do toast - ADICIONADO
-        document.addEventListener('DOMContentLoaded', function () {
-            const toast = document.getElementById('toast');
-            toast.style.display = 'none'; // Garante que comece oculto
-        });
 
         // Save functionality
         document.querySelectorAll('.save-btn').forEach(button => {
@@ -1375,32 +1122,27 @@ async function updatePollResults(pollId) {
         });
 
         function loadComments(postId) {
-    fetch(`../backend/get_comments.php?post_id=${postId}`)
-        .then(response => response.json())
-        .then(comments => {
-            const commentsList = document.getElementById('commentsList');
-            commentsList.innerHTML = '';
+            fetch(`../backend/get_comments.php?post_id=${postId}`)
+                .then(response => response.json())
+                .then(comments => {
+                    const commentsList = document.getElementById('commentsList');
+                    commentsList.innerHTML = '';
 
-            if (comments.length === 0) {
-                const noCommentsMsg = document.createElement('div');
-                noCommentsMsg.className = 'no-comments';
-                noCommentsMsg.textContent = 'Ainda sem comentários. Seja o primeiro a comentar!';
-                commentsList.appendChild(noCommentsMsg);
-                return;
-            }
+                    if (comments.length === 0) {
+                        const noCommentsMsg = document.createElement('div');
+                        noCommentsMsg.className = 'no-comments';
+                        noCommentsMsg.textContent = 'Ainda sem comentários. Seja o primeiro a comentar!';
+                        commentsList.appendChild(noCommentsMsg);
+                        return;
+                    }
 
-            comments.forEach(comment => {
-                const dataComentario = new Date(comment.data);
-                const dataComentarioFormatada = `${dataComentario.getDate().toString().padStart(2, '0')}-${(dataComentario.getMonth() + 1).toString().padStart(2, '0')}-${dataComentario.getFullYear()} ${dataComentario.getHours().toString().padStart(2, '0')}:${dataComentario.getMinutes().toString().padStart(2, '0')}`;
+                    comments.forEach(comment => {
+                        const dataComentario = new Date(comment.data);
+                        const dataComentarioFormatada = `${dataComentario.getDate().toString().padStart(2, '0')}-${(dataComentario.getMonth() + 1).toString().padStart(2, '0')}-${dataComentario.getFullYear()} ${dataComentario.getHours().toString().padStart(2, '0')}:${dataComentario.getMinutes().toString().padStart(2, '0')}`;
 
-                const commentItem = document.createElement('div');
-                commentItem.className = 'comment-item';
-                
-                // Obter o ID do usuário atual do PHP e passar para JavaScript
-                const currentUserId = <?php echo $_SESSION['id']; ?>;
-                const currentUserType = <?php echo $_SESSION['id_tipos_utilizador']; ?>;
-                
-                commentItem.innerHTML = `
+                        const commentItem = document.createElement('div');
+                        commentItem.className = 'comment-item';
+                        commentItem.innerHTML = `
                     <a href="perfil.php?id=${comment.utilizador_id}">
                         <img src="images/perfil/${comment.foto_perfil || 'default-profile.jpg'}" alt="User" class="comment-avatar">
                     </a>
@@ -1412,7 +1154,7 @@ async function updatePollResults(pollId) {
                                 </a>
                                 <span class="comment-time">${dataComentarioFormatada}</span>
                             </div>
-                            ${(currentUserId == comment.utilizador_id || currentUserType == 2) ?
+                            ${(<?php echo $_SESSION['id']; ?> == comment.utilizador_id || <?php echo $_SESSION['id_tipos_utilizador']; ?> == 2) ?
                                 `<button class="delete-comment-btn" onclick="deleteComment(${comment.id}, this)">
                                     <i class="fas fa-trash"></i>
                                 </button>` : ''}
@@ -1420,11 +1162,23 @@ async function updatePollResults(pollId) {
                         <p class="comment-text">${comment.conteudo}</p>
                     </div>
                 `;
-                commentsList.appendChild(commentItem);
-            });
-        });
-}
+                        commentsList.appendChild(commentItem);
+                    });
+                });
+        }
     </script>
 </body>
 
 </html>
+
+<?php
+if (isset($_SESSION["erro"])) {
+    echo "<script>showToast('" . addslashes($_SESSION["erro"]) . "');</script>";
+    unset($_SESSION["erro"]);
+}
+
+if (isset($_SESSION["sucesso"])) {
+    echo "<script>showToast('" . addslashes($_SESSION["sucesso"]) . "');</script>";
+    unset($_SESSION["sucesso"]);
+}
+?>

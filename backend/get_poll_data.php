@@ -16,7 +16,7 @@ try {
     // Buscar dados da poll
     $sqlPoll = "
         SELECT p.pergunta, p.data_expiracao, p.total_votos,
-               po.id as opcao_id, po.opcao_texto, po.votos
+               po.id as opcao_id, po.opcao_texto, po.votos, po.ordem
         FROM polls p
         JOIN poll_opcoes po ON p.id = po.poll_id
         WHERE p.id = ?
@@ -73,6 +73,7 @@ try {
     ]);
 
 } catch (Exception $e) {
+    error_log('Erro ao carregar poll: ' . $e->getMessage());
     echo json_encode(['success' => false, 'message' => 'Erro interno do servidor']);
 }
 ?>

@@ -2,6 +2,8 @@
 session_start();
 include "ligabd.php";
 
+header('Content-Type: application/json');
+
 if (!isset($_SESSION['id'])) {
     echo json_encode(['success' => false, 'message' => 'Não autenticado']);
     exit;
@@ -20,43 +22,43 @@ if ($pollId <= 0 || $opcaoId <= 0) {
     exit;
 }
 
-// Verificar se a poll ainda está ativa
-$stmt = $con->prepare("SELECT p.id, p.data_expiracao 
-                      FROM polls p
-                      WHERE p.id = ? AND p.data_expiracao > NOW()");
-$stmt->bind_param("i", $pollId);
-$stmt->execute();
-$result = $stmt->get_result();
-
-if ($result->num_rows === 0) {
-    echo json_encode(['success' => false, 'message' => 'Poll não encontrada ou já expirada']);
-    exit;
-}
-
-// Verificar se a opção pertence à poll
-$stmt = $con->prepare("SELECT id FROM poll_opcoes WHERE id = ? AND poll_id = ?");
-$stmt->bind_param("ii", $opcaoId, $pollId);
-$stmt->execute();
-
-if ($stmt->get_result()->num_rows === 0) {
-    echo json_encode(['success' => false, 'message' => 'Opção inválida']);
-    exit;
-}
-
-// Verificar se o usuário já votou
-$stmt = $con->prepare("SELECT id FROM poll_votos WHERE poll_id = ? AND utilizador_id = ?");
-$stmt->bind_param("ii", $pollId, $_SESSION['id']);
-$stmt->execute();
-
-if ($stmt->get_result()->num_rows > 0) {
-    echo json_encode(['success' => false, 'message' => 'Você já votou nesta poll']);
-    exit;
-}
-
-// Iniciar transação
-$con->begin_transaction();
-
 try {
+    // Verificar se a poll ainda está ativa
+    $stmt = $con->prepare("SELECT p.id, p.data_expiracao 
+                          FROM polls p
+                          WHERE p.id = ? AND p.data_expiracao > NOW()");
+    $stmt->bind_param("i", $pollId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 0) {
+        echo json_encode(['success' => false, 'message' => 'Poll não encontrada ou já expirada']);
+        exit;
+    }
+
+    // Verificar se a opção pertence à poll
+    $stmt = $con->prepare("SELECT id FROM poll_opcoes WHERE id = ? AND poll_id = ?");
+    $stmt->bind_param("ii", $opcaoId, $pollId);
+    $stmt->execute();
+
+    if ($stmt->get_result()->num_rows === 0) {
+        echo json_encode(['success' => false, 'message' => 'Opção inválida']);
+        exit;
+    }
+
+    // Verificar se o usuário já votou
+    $stmt = $con->prepare("SELECT id FROM poll_votos WHERE poll_id = ? AND utilizador_id = ?");
+    $stmt->bind_param("ii", $pollId, $_SESSION['id']);
+    $stmt->execute();
+
+    if ($stmt->get_result()->num_rows > 0) {
+        echo json_encode(['success' => false, 'message' => 'Você já votou nesta poll']);
+        exit;
+    }
+
+    // Iniciar transação
+    $con->begin_transaction();
+
     // Registrar o voto
     $stmt = $con->prepare("INSERT INTO poll_votos (poll_id, opcao_id, utilizador_id, data_voto) 
                           VALUES (?, ?, ?, NOW())");
@@ -75,12 +77,45 @@ try {
 
     $con->commit();
     
+    // Buscar dados atualizados da poll
+    $sqlPoll = "
+        SELECT p.pergunta, p.data_expiracao, p.total_votos,
+               po.id as opcao_id, po.opcao_texto, po.votos
+        FROM polls p
+        JOIN poll_opcoes po ON p.id = po.poll_id
+        WHERE p.id = ?
+        ORDER BY po.ordem ASC
+    ";
+    
+    $stmtPoll = $con->prepare($sqlPoll);
+    $stmtPoll->bind_param("i", $pollId);
+    $stmtPoll->execute();
+    $result = $stmtPoll->get_result();
+
+    $opcoes = [];
+    $totalVotos = 0;
+    
+    while ($row = $result->fetch_assoc()) {
+        $totalVotos = $row['total_votos'];
+        $opcoes[] = [
+            'id' => $row['opcao_id'],
+            'texto' => $row['opcao_texto'],
+            'votos' => $row['votos'],
+            'percentagem' => $totalVotos > 0 ? 
+                round(($row['votos'] / $totalVotos) * 100, 1) : 0
+        ];
+    }
+    
     echo json_encode([
         'success' => true,
-        'message' => 'Voto registrado com sucesso'
+        'message' => 'Voto registrado com sucesso',
+        'opcoes' => $opcoes,
+        'total_votos' => $totalVotos
     ]);
+    
 } catch (Exception $e) {
     $con->rollback();
+    error_log('Erro ao votar: ' . $e->getMessage());
     echo json_encode([
         'success' => false,
         'message' => 'Erro ao registrar voto: ' . $e->getMessage()
