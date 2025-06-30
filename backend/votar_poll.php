@@ -1,6 +1,7 @@
 <?php
 session_start();
 include "ligabd.php";
+require "create_notification.php";
 
 header('Content-Type: application/json');
 
@@ -24,8 +25,9 @@ if ($pollId <= 0 || $opcaoId <= 0) {
 
 try {
     // Verificar se a poll ainda está ativa
-    $stmt = $con->prepare("SELECT p.id, p.data_expiracao 
+    $stmt = $con->prepare("SELECT p.id, p.data_expiracao, pub.id_utilizador as criador_id
                           FROM polls p
+                          JOIN publicacoes pub ON p.publicacao_id = pub.id_publicacao
                           WHERE p.id = ? AND p.data_expiracao > NOW()");
     $stmt->bind_param("i", $pollId);
     $stmt->execute();
@@ -35,6 +37,9 @@ try {
         echo json_encode(['success' => false, 'message' => 'Poll não encontrada ou já expirada']);
         exit;
     }
+
+    $pollData = $result->fetch_assoc();
+    $criadorId = $pollData['criador_id'];
 
     // Verificar se a opção pertence à poll
     $stmt = $con->prepare("SELECT id FROM poll_opcoes WHERE id = ? AND poll_id = ?");
@@ -75,6 +80,17 @@ try {
     $stmt->bind_param("i", $pollId);
     $stmt->execute();
 
+    // Criar notificação para o criador da poll (se não for o próprio usuário)
+    if ($criadorId != $_SESSION['id']) {
+        // Buscar a publicação ID
+        $stmt = $con->prepare("SELECT publicacao_id FROM polls WHERE id = ?");
+        $stmt->bind_param("i", $pollId);
+        $stmt->execute();
+        $pollResult = $stmt->get_result()->fetch_assoc();
+        
+        createNotification($con, $criadorId, $_SESSION['id'], 'poll_vote', $pollResult['publicacao_id']);
+    }
+
     $con->commit();
     
     // Buscar dados atualizados da poll
@@ -102,7 +118,8 @@ try {
             'texto' => $row['opcao_texto'],
             'votos' => $row['votos'],
             'percentagem' => $totalVotos > 0 ? 
-                round(($row['votos'] / $totalVotos) * 100, 1) : 0
+                round(($row['votos'] / $totalVotos) * 100, 1) : 0,
+            'user_voted' => $row['opcao_id'] == $opcaoId // Marcar a opção que o usuário votou
         ];
     }
     
@@ -110,7 +127,8 @@ try {
         'success' => true,
         'message' => 'Voto registrado com sucesso',
         'opcoes' => $opcoes,
-        'total_votos' => $totalVotos
+        'total_votos' => $totalVotos,
+        'user_voted_option' => $opcaoId
     ]);
     
 } catch (Exception $e) {

@@ -29,6 +29,9 @@ function createNotification($con, $userId, $remetenteId, $tipo, $publicacaoId = 
         case 'save':
             $mensagem = $remetente['nome_completo'] . " guardou a sua publicação";
             break;
+        case 'poll_vote':
+            $mensagem = $remetente['nome_completo'] . " votou na sua poll";
+            break;
         case 'unfollow':
             // Para unfollow, vamos remover a notificação de follow se existir
             $sqlDelete = "DELETE FROM notificacoes 
