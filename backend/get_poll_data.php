@@ -10,7 +10,7 @@ if (!isset($_GET['poll_id'])) {
 }
 
 $pollId = intval($_GET['poll_id']);
-$userId = isset($_SESSION['id']) ? $_SESSION['id'] : 0;
+$userId = isset($_SESSION['id']) ? intval($_SESSION['id']) : 0;
 
 try {
     // Buscar dados da poll
@@ -24,6 +24,10 @@ try {
     ";
     
     $stmtPoll = $con->prepare($sqlPoll);
+    if (!$stmtPoll) {
+        throw new Exception('Erro na preparação da query: ' . $con->error);
+    }
+    
     $stmtPoll->bind_param("i", $pollId);
     $stmtPoll->execute();
     $result = $stmtPoll->get_result();
@@ -41,35 +45,46 @@ try {
             $pollData = [
                 'pergunta' => $row['pergunta'],
                 'data_expiracao' => $row['data_expiracao'],
-                'total_votos' => $row['total_votos'],
+                'total_votos' => intval($row['total_votos']),
                 'expirada' => strtotime($row['data_expiracao']) < time()
             ];
         }
         
         $opcoes[] = [
-            'id' => $row['opcao_id'],
+            'id' => intval($row['opcao_id']),
             'texto' => $row['opcao_texto'],
-            'votos' => $row['votos'],
+            'votos' => intval($row['votos']),
             'percentagem' => $pollData['total_votos'] > 0 ? 
-                round(($row['votos'] / $pollData['total_votos']) * 100, 1) : 0
+                round((intval($row['votos']) / $pollData['total_votos']) * 100, 1) : 0
         ];
     }
 
     // Verificar se o usuário já votou
     $userVoted = false;
+    $userVotedOption = null;
+    
     if ($userId > 0) {
-        $sqlUserVote = "SELECT id FROM poll_votos WHERE poll_id = ? AND utilizador_id = ?";
+        $sqlUserVote = "SELECT opcao_id FROM poll_votos WHERE poll_id = ? AND utilizador_id = ?";
         $stmtUserVote = $con->prepare($sqlUserVote);
-        $stmtUserVote->bind_param("ii", $pollId, $userId);
-        $stmtUserVote->execute();
-        $userVoted = $stmtUserVote->get_result()->num_rows > 0;
+        if ($stmtUserVote) {
+            $stmtUserVote->bind_param("ii", $pollId, $userId);
+            $stmtUserVote->execute();
+            $voteResult = $stmtUserVote->get_result();
+            
+            if ($voteResult->num_rows > 0) {
+                $userVoted = true;
+                $voteData = $voteResult->fetch_assoc();
+                $userVotedOption = intval($voteData['opcao_id']);
+            }
+        }
     }
 
     echo json_encode([
         'success' => true,
         'poll' => $pollData,
         'opcoes' => $opcoes,
-        'user_voted' => $userVoted
+        'user_voted' => $userVoted,
+        'user_voted_option' => $userVotedOption
     ]);
 
 } catch (Exception $e) {

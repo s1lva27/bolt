@@ -1,6 +1,6 @@
 <?php
 session_start();
-include "../backend/ligabd.php";
+require "../backend/ligabd.php";
 
 $currentUserId = isset($_SESSION['id']) ? $_SESSION['id'] : 0;
 $currentUserType = isset($_SESSION['id_tipos_utilizador']) ? $_SESSION['id_tipos_utilizador'] : 0;
@@ -25,6 +25,8 @@ function getCommentCount($con, $postId)
 // Função para verificar se o post está salvo
 function isPostSaved($con, $userId, $postId)
 {
+    if (!$userId) return false;
+    
     $sql = "SELECT * FROM publicacao_salvas
             WHERE utilizador_id = $userId AND publicacao_id = $postId";
     $result = mysqli_query($con, $sql);
@@ -48,86 +50,94 @@ function getPostImages($con, $postId)
 // Função para buscar dados da poll
 function getPollData($con, $postId, $userId = 0)
 {
-    // Verificar se existe poll para esta publicação
-    $sqlPoll = "SELECT id FROM polls WHERE publicacao_id = ?";
-    $stmtPoll = $con->prepare($sqlPoll);
-    $stmtPoll->bind_param("i", $postId);
-    $stmtPoll->execute();
-    $pollResult = $stmtPoll->get_result();
+    // Verificar se a publicação tem uma poll
+    $sqlPoll = "SELECT p.id, p.pergunta, p.data_expiracao, p.total_votos
+                FROM polls p
+                WHERE p.publicacao_id = ?";
+    
+    $stmt = $con->prepare($sqlPoll);
+    if (!$stmt) {
+        return null;
+    }
+    
+    $stmt->bind_param("i", $postId);
+    $stmt->execute();
+    $pollResult = $stmt->get_result();
     
     if ($pollResult->num_rows === 0) {
         return null; // Não é uma poll
     }
     
-    $pollRow = $pollResult->fetch_assoc();
-    $pollId = $pollRow['id'];
+    $poll = $pollResult->fetch_assoc();
+    $pollId = $poll['id'];
     
-    // Buscar dados completos da poll
-    $sqlPollData = "
-        SELECT p.pergunta, p.data_expiracao, p.total_votos,
-               po.id as opcao_id, po.opcao_texto, po.votos, po.ordem
-        FROM polls p
-        JOIN poll_opcoes po ON p.id = po.poll_id
-        WHERE p.id = ?
-        ORDER BY po.ordem ASC
-    ";
+    // Buscar opções da poll
+    $sqlOpcoes = "SELECT id, opcao_texto, votos, ordem
+                  FROM poll_opcoes
+                  WHERE poll_id = ?
+                  ORDER BY ordem ASC";
     
-    $stmtPollData = $con->prepare($sqlPollData);
-    $stmtPollData->bind_param("i", $pollId);
-    $stmtPollData->execute();
-    $result = $stmtPollData->get_result();
-
-    if ($result->num_rows === 0) {
+    $stmtOpcoes = $con->prepare($sqlOpcoes);
+    if (!$stmtOpcoes) {
         return null;
     }
-
-    $opcoes = [];
-    $pollInfo = null;
     
-    while ($row = $result->fetch_assoc()) {
-        if (!$pollInfo) {
-            $pollInfo = [
-                'id' => $pollId,
-                'pergunta' => $row['pergunta'],
-                'data_expiracao' => $row['data_expiracao'],
-                'total_votos' => $row['total_votos'],
-                'expirada' => strtotime($row['data_expiracao']) < time()
-            ];
-        }
+    $stmtOpcoes->bind_param("i", $pollId);
+    $stmtOpcoes->execute();
+    $opcoesResult = $stmtOpcoes->get_result();
+    
+    $opcoes = [];
+    while ($opcao = $opcoesResult->fetch_assoc()) {
+        $percentagem = $poll['total_votos'] > 0 ? 
+            round(($opcao['votos'] / $poll['total_votos']) * 100, 1) : 0;
         
         $opcoes[] = [
-            'id' => $row['opcao_id'],
-            'texto' => $row['opcao_texto'],
-            'votos' => $row['votos'],
-            'percentagem' => $pollInfo['total_votos'] > 0 ? 
-                round(($row['votos'] / $pollInfo['total_votos']) * 100, 1) : 0
+            'id' => $opcao['id'],
+            'texto' => $opcao['opcao_texto'],
+            'votos' => $opcao['votos'],
+            'percentagem' => $percentagem
         ];
     }
-
+    
     // Verificar se o usuário já votou
     $userVoted = false;
     $userVotedOption = null;
+    
     if ($userId > 0) {
-        $sqlUserVote = "SELECT opcao_id FROM poll_votos WHERE poll_id = ? AND utilizador_id = ?";
+        $sqlUserVote = "SELECT opcao_id FROM poll_votos 
+                        WHERE poll_id = ? AND utilizador_id = ?";
         $stmtUserVote = $con->prepare($sqlUserVote);
-        $stmtUserVote->bind_param("ii", $pollId, $userId);
-        $stmtUserVote->execute();
-        $voteResult = $stmtUserVote->get_result();
-        if ($voteResult->num_rows > 0) {
-            $userVoted = true;
-            $userVotedOption = $voteResult->fetch_assoc()['opcao_id'];
+        if ($stmtUserVote) {
+            $stmtUserVote->bind_param("ii", $pollId, $userId);
+            $stmtUserVote->execute();
+            $voteResult = $stmtUserVote->get_result();
+            
+            if ($voteResult->num_rows > 0) {
+                $userVoted = true;
+                $voteData = $voteResult->fetch_assoc();
+                $userVotedOption = $voteData['opcao_id'];
+            }
         }
     }
-
+    
+    // Verificar se a poll expirou
+    $poll['expirada'] = strtotime($poll['data_expiracao']) < time();
+    
     return [
-        'poll' => $pollInfo,
+        'poll' => $poll,
         'opcoes' => $opcoes,
         'user_voted' => $userVoted,
         'user_voted_option' => $userVotedOption
     ];
 }
 
-$userId = $_SESSION["id"] ?? 0;
+// Verificar se o utilizador está autenticado
+if (!isset($_SESSION["id"])) {
+    header("Location: login.php");
+    exit();
+}
+
+$userId = $_SESSION["id"];
 $sqlPerfil = "SELECT * FROM perfis WHERE id_utilizador = $userId";
 $resultPerfil = mysqli_query($con, $sqlPerfil);
 $perfilData = mysqli_fetch_assoc($resultPerfil);
@@ -282,7 +292,6 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
         </div>
     </div>
 
-    <!-- Header -->
     <?php require "parciais/header.php" ?>
 
     <!-- Comments Modal -->
@@ -328,10 +337,10 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
             <!-- Create Post -->
             <div class="create-post">
                 <div class="post-input">
-                    <img src="images/perfil/<?php echo $perfilData['foto_perfil'] ?? 'default-profile.jpg'; ?>"
+                    <img src="images/perfil/<?php echo $perfilData['foto_perfil'] ?: 'default-profile.jpg'; ?>"
                         alt="User" class="profile-pic">
                     <form action="../backend/criar_publicacao.php" method="POST" enctype="multipart/form-data">
-                        <textarea name="conteudo" placeholder="O que está a acontecer?"></textarea>
+                        <textarea name="conteudo" placeholder="No que está a pensar?"></textarea>
                 </div>
                 <div class="post-actions">
                     <button type="button" onclick="document.getElementById('media0').click()">
@@ -343,35 +352,24 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                     <button type="button">
                         <i class="fas fa-smile"></i>
                     </button>
-                    <button type="button">
-                        <i class="fas fa-map-marker-alt"></i>
-                    </button>
-
-                    <!-- Hidden file inputs -->
-                    <input type="file" id="media0" name="media0" accept="image/*,video/*" style="display: none;"
-                        onchange="previewMedia(this, 0)">
-                    <input type="file" id="media1" name="media1" accept="image/*,video/*" style="display: none;"
-                        onchange="previewMedia(this, 1)">
-                    <input type="file" id="media2" name="media2" accept="image/*,video/*" style="display: none;"
-                        onchange="previewMedia(this, 2)">
-                    <input type="file" id="media3" name="media3" accept="image/*,video/*" style="display: none;"
-                        onchange="previewMedia(this, 3)">
-                    <input type="file" id="media4" name="media4" accept="image/*,video/*" style="display: none;"
-                        onchange="previewMedia(this, 4)">
-
-                    <button type="submit" name="publicar" class="publish-btn">
-                        <i class="fas fa-paper-plane"></i> Publicar
-                    </button>
+                    <button type="submit" name="publicar" class="publish-btn">Publicar</button>
                 </div>
+
+                <!-- Hidden file inputs -->
+                <input type="file" id="media0" name="media0" accept="image/*,video/*" style="display: none;"
+                    onchange="previewMedia(this, 0)">
+                <input type="file" id="media1" name="media1" accept="image/*,video/*" style="display: none;"
+                    onchange="previewMedia(this, 1)">
+                <input type="file" id="media2" name="media2" accept="image/*,video/*" style="display: none;"
+                    onchange="previewMedia(this, 2)">
+                <input type="file" id="media3" name="media3" accept="image/*,video/*" style="display: none;"
+                    onchange="previewMedia(this, 3)">
+                <input type="file" id="media4" name="media4" accept="image/*,video/*" style="display: none;"
+                    onchange="previewMedia(this, 4)">
+
+                <!-- Preview container -->
+                <div id="mediaPreview" style="display: none; margin-top: 15px;"></div>
                 </form>
-
-                <!-- Media Preview Container -->
-                <div id="mediaPreview" style="display: none; margin-top: 15px;">
-                    <div id="previewContainer"></div>
-                    <button type="button" onclick="addMoreMedia()" id="addMoreBtn" style="display: none;">
-                        <i class="fas fa-plus"></i> Adicionar mais
-                    </button>
-                </div>
             </div>
 
             <!-- Posts -->
@@ -407,7 +405,7 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
 
                         // Verificar se está salvo
                         $savedClass = '';
-                        if ($currentUserId && isPostSaved($con, $currentUserId, $publicacaoId)) {
+                        if (isPostSaved($con, $currentUserId, $publicacaoId)) {
                             $savedClass = 'saved';
                         }
 
@@ -447,8 +445,9 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                                         
                                         <div class="poll-options">
                                             <?php foreach ($pollData['opcoes'] as $opcao): ?>
-                                                <div class="poll-option <?php echo ($pollData['user_voted'] || $pollData['poll']['expirada']) ? 'disabled voted' : ''; ?> 
-                                                           <?php echo ($pollData['user_voted_option'] == $opcao['id']) ? 'user-voted' : ''; ?>"
+                                                <div class="poll-option <?php echo ($pollData['user_voted'] || $pollData['poll']['expirada']) ? 'disabled' : ''; ?> 
+                                                           <?php echo $pollData['user_voted'] ? 'voted' : ''; ?>
+                                                           <?php echo ($pollData['user_voted_option'] == $opcao['id']) ? 'user-voted' : ''; ?>" 
                                                      data-opcao-id="<?php echo $opcao['id']; ?>"
                                                      <?php if (!$pollData['user_voted'] && !$pollData['poll']['expirada']): ?>
                                                          onclick="voteInPoll(<?php echo $pollData['poll']['id']; ?>, <?php echo $opcao['id']; ?>)"
@@ -474,7 +473,7 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                                             <span class="poll-total-votes"><?php echo $pollData['poll']['total_votos']; ?> voto<?php echo $pollData['poll']['total_votos'] !== 1 ? 's' : ''; ?></span>
                                             <span class="poll-time-left <?php echo $pollData['poll']['expirada'] ? 'poll-expired' : ''; ?>">
                                                 <i class="fas fa-clock"></i>
-                                                <?php echo $pollData['poll']['expirada'] ? 'Poll encerrada' : 'Encerra em ' . date('d/m/Y H:i', strtotime($pollData['poll']['data_expiracao'])); ?>
+                                                <?php echo $pollData['poll']['expirada'] ? 'Poll encerrada' : 'Ativa'; ?>
                                             </span>
                                         </div>
                                     </div>
@@ -552,7 +551,7 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                         <?php
                     }
                 } else {
-                    echo "<p class='no-posts'>Ainda não há publicações. Seja o primeiro a publicar!</p>";
+                    echo "<p class='no-posts'>Ainda não há publicações para mostrar.</p>";
                 }
                 ?>
             </div>
@@ -585,6 +584,11 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
         // Função para votar em poll
         async function voteInPoll(pollId, opcaoId) {
             try {
+                const optionElement = document.querySelector(`[data-opcao-id="${opcaoId}"]`);
+                if (optionElement) {
+                    optionElement.classList.add('voting');
+                }
+
                 const formData = new FormData();
                 formData.append('poll_id', pollId);
                 formData.append('opcao_id', opcaoId);
@@ -597,14 +601,66 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                 const data = await response.json();
 
                 if (data.success) {
-                    // Recarregar a página para mostrar os resultados atualizados
-                    location.reload();
+                    updatePollDisplay(pollId, data);
+                    showToast('Voto registado com sucesso!');
                 } else {
-                    showToast(data.message || 'Erro ao votar');
+                    showToast(data.message || 'Erro ao votar', 'error');
                 }
             } catch (error) {
                 console.error('Erro ao votar:', error);
-                showToast('Erro de conexão');
+                showToast('Erro de conexão', 'error');
+            } finally {
+                const optionElement = document.querySelector(`[data-opcao-id="${opcaoId}"]`);
+                if (optionElement) {
+                    optionElement.classList.remove('voting');
+                }
+            }
+        }
+
+        // Função para atualizar display da poll após voto
+        function updatePollDisplay(pollId, data) {
+            const pollContainer = document.querySelector(`[data-poll-id="${pollId}"]`);
+            if (!pollContainer) return;
+
+            // Atualizar opções
+            if (data.opcoes && Array.isArray(data.opcoes)) {
+                data.opcoes.forEach(opcao => {
+                    const optionElement = pollContainer.querySelector(`[data-opcao-id="${opcao.id}"]`);
+                    if (optionElement) {
+                        // Atualizar barra de progresso
+                        const progressBar = optionElement.querySelector('.poll-option-progress');
+                        if (progressBar) {
+                            progressBar.style.width = `${opcao.percentagem}%`;
+                        }
+
+                        // Atualizar estatísticas
+                        const percentage = optionElement.querySelector('.poll-option-percentage');
+                        const votes = optionElement.querySelector('.poll-option-votes');
+                        
+                        if (percentage) {
+                            percentage.textContent = `${opcao.percentagem}%`;
+                        }
+                        
+                        if (votes) {
+                            votes.textContent = `${opcao.votos} voto${opcao.votos !== 1 ? 's' : ''}`;
+                        }
+
+                        // Marcar como votada e desabilitar
+                        optionElement.classList.add('voted', 'disabled');
+                        optionElement.style.pointerEvents = 'none';
+
+                        // Destacar opção do usuário
+                        if (opcao.user_voted) {
+                            optionElement.classList.add('user-voted');
+                        }
+                    }
+                });
+            }
+
+            // Atualizar total de votos
+            const totalVotesElement = pollContainer.querySelector('.poll-total-votes');
+            if (totalVotesElement && data.total_votos !== undefined) {
+                totalVotesElement.textContent = `${data.total_votos} voto${data.total_votos !== 1 ? 's' : ''}`;
             }
         }
 
@@ -629,19 +685,11 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                         .then(response => response.json())
                         .then(data => {
                             if (data.success) {
-                                // Remove o elemento da publicação do DOM com animação
                                 element.closest('.post').style.opacity = '0';
                                 element.closest('.post').style.transform = 'translateX(-100px)';
                                 setTimeout(() => {
                                     element.closest('.post').remove();
-
-                                    // Verifica se não há mais posts
-                                    const postsContainer = document.querySelector('.posts');
-                                    if (postsContainer.children.length === 0) {
-                                        postsContainer.innerHTML = '<p class="no-posts">Ainda não há publicações. Seja o primeiro a publicar!</p>';
-                                    }
                                 }, 300);
-
                                 showToast('Publicação apagada com sucesso');
                             } else {
                                 showToast('Erro ao apagar publicação');
@@ -676,11 +724,9 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                         .then(response => response.json())
                         .then(data => {
                             if (data.success) {
-                                // Remove o elemento do comentário do DOM
                                 element.closest('.comment-item').remove();
                                 showToast('Comentário apagado com sucesso');
 
-                                // Atualiza a contagem de comentários
                                 const commentCount = document.querySelector(`.comment-btn[onclick*="${currentPostId}"] .comment-count`);
                                 if (commentCount) {
                                     commentCount.textContent = parseInt(commentCount.textContent) - 1;
@@ -697,7 +743,7 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
             });
         }
 
-        // Função para mostrar o modal de confirmação (reutilizável)
+        // Função para mostrar o modal de confirmação
         function showConfirmation(callback) {
             const modal = document.getElementById('confirmationModal');
             const confirmBtn = document.getElementById('confirmAction');
@@ -706,7 +752,6 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
 
-            // Limpa listeners anteriores
             confirmBtn.onclick = null;
             cancelBtn.onclick = null;
 
@@ -723,9 +768,12 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
             };
         }
 
-        // Initialize video players after page load
+        // Inicialização
         document.addEventListener('DOMContentLoaded', function () {
             initializeVideoThumbnails();
+            
+            // Garante que o modal de comentários está fechado
+            document.getElementById('commentsModal').style.display = 'none';
         });
 
         // Sistema de visualização de mídia
@@ -996,7 +1044,6 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                     const commentsList = document.getElementById('commentsList');
                     commentsList.innerHTML = '';
 
-                    // Adiciona mensagem quando não há comentários
                     if (comments.length === 0) {
                         const noCommentsMsg = document.createElement('div');
                         noCommentsMsg.className = 'no-comments';
@@ -1023,7 +1070,7 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                                 </a>
                                 <span class="comment-time">${dataComentarioFormatada}</span>
                             </div>
-                            ${(<?php echo $currentUserId; ?> == comment.utilizador_id || <?php echo $currentUserType; ?> == 2) ?
+                            ${(<?php echo $_SESSION['id']; ?> == comment.utilizador_id || <?php echo $_SESSION['id_tipos_utilizador']; ?> == 2) ?
                                 `<button class="delete-comment-btn" onclick="deleteComment(${comment.id}, this)">
                                     <i class="fas fa-trash"></i>
                                 </button>` : ''}
@@ -1036,7 +1083,7 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                 });
         }
 
-        // Mostrar toast
+        // Função para mostrar toast
         function showToast(message) {
             const toast = document.getElementById('toast');
             const toastMessage = document.getElementById('toast-message');
@@ -1056,80 +1103,69 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
         }
 
         // Media preview functionality
-        let mediaCount = 0;
-        const maxMedia = 5;
+        let selectedFiles = [];
 
         function previewMedia(input, index) {
             if (input.files && input.files[0]) {
                 const file = input.files[0];
-                const reader = new FileReader();
+                selectedFiles[index] = file;
 
-                reader.onload = function (e) {
-                    const previewContainer = document.getElementById('previewContainer');
-                    const mediaPreview = document.getElementById('mediaPreview');
+                const previewContainer = document.getElementById('mediaPreview');
+                previewContainer.style.display = 'block';
 
-                    // Create preview element
-                    const previewDiv = document.createElement('div');
-                    previewDiv.className = 'media-preview-item';
-                    previewDiv.style.cssText = 'position: relative; display: inline-block; margin: 5px;';
+                updatePreview();
 
-                    let mediaElement;
-                    if (file.type.startsWith('video/')) {
-                        mediaElement = document.createElement('video');
-                        mediaElement.src = e.target.result;
-                        mediaElement.controls = true;
-                        mediaElement.style.cssText = 'max-width: 200px; max-height: 200px; border-radius: 8px;';
-                    } else {
-                        mediaElement = document.createElement('img');
-                        mediaElement.src = e.target.result;
-                        mediaElement.style.cssText = 'max-width: 200px; max-height: 200px; object-fit: cover; border-radius: 8px;';
+                // Enable next file input if available
+                if (index < 4) {
+                    const nextInput = document.getElementById(`media${index + 1}`);
+                    if (nextInput) {
+                        nextInput.disabled = false;
                     }
-
-                    // Remove button
-                    const removeBtn = document.createElement('button');
-                    removeBtn.innerHTML = '×';
-                    removeBtn.type = 'button';
-                    removeBtn.style.cssText = 'position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.7); color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer;';
-                    removeBtn.onclick = function () {
-                        previewDiv.remove();
-                        input.value = '';
-                        mediaCount--;
-                        updateAddMoreButton();
-                        if (mediaCount === 0) {
-                            mediaPreview.style.display = 'none';
-                        }
-                    };
-
-                    previewDiv.appendChild(mediaElement);
-                    previewDiv.appendChild(removeBtn);
-                    previewContainer.appendChild(previewDiv);
-
-                    mediaPreview.style.display = 'block';
-                    mediaCount++;
-                    updateAddMoreButton();
-                };
-
-                reader.readAsDataURL(file);
-            }
-        }
-
-        function addMoreMedia() {
-            for (let i = 0; i < maxMedia; i++) {
-                const input = document.getElementById(`media${i}`);
-                if (!input.files || !input.files[0]) {
-                    input.click();
-                    break;
                 }
             }
         }
 
-        function updateAddMoreButton() {
-            const addMoreBtn = document.getElementById('addMoreBtn');
-            if (mediaCount > 0 && mediaCount < maxMedia) {
-                addMoreBtn.style.display = 'block';
-            } else {
-                addMoreBtn.style.display = 'none';
+        function updatePreview() {
+            const previewContainer = document.getElementById('mediaPreview');
+            previewContainer.innerHTML = '';
+
+            selectedFiles.forEach((file, index) => {
+                if (file) {
+                    const mediaDiv = document.createElement('div');
+                    mediaDiv.style.cssText = 'position: relative; display: inline-block; margin: 5px;';
+
+                    if (file.type.startsWith('image/')) {
+                        const img = document.createElement('img');
+                        img.src = URL.createObjectURL(file);
+                        img.style.cssText = 'width: 100px; height: 100px; object-fit: cover; border-radius: 8px;';
+                        mediaDiv.appendChild(img);
+                    } else if (file.type.startsWith('video/')) {
+                        const video = document.createElement('video');
+                        video.src = URL.createObjectURL(file);
+                        video.style.cssText = 'width: 100px; height: 100px; object-fit: cover; border-radius: 8px;';
+                        video.muted = true;
+                        mediaDiv.appendChild(video);
+                    }
+
+                    const removeBtn = document.createElement('button');
+                    removeBtn.innerHTML = '×';
+                    removeBtn.style.cssText = 'position: absolute; top: -5px; right: -5px; background: red; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer;';
+                    removeBtn.onclick = () => removeMedia(index);
+                    mediaDiv.appendChild(removeBtn);
+
+                    previewContainer.appendChild(mediaDiv);
+                }
+            });
+
+            if (selectedFiles.filter(f => f).length === 0) {
+                previewContainer.style.display = 'none';
             }
+        }
+
+        function removeMedia(index) {
+            selectedFiles[index] = null;
+            document.getElementById(`media${index}`).value = '';
+            updatePreview();
         }
     </script>
 </body>
