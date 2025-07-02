@@ -4,7 +4,6 @@ session_start();
 if (!isset($_POST["submitBtn"]) || isset($_SESSION["email"])) {
     header("Location: ../");
     exit();
-
 }
 
 $nick = $_POST["nick"];
@@ -30,26 +29,31 @@ if (mysqli_num_rows($check_email) > 0) {
 if (mysqli_num_rows($check_nick) > 0) {
     $_SESSION["erro"] = "Nome de utilizador já registado.";
     header("Location: ../frontend/registar.php");
-}
-
-$sql_inserir = "INSERT INTO utilizadores VALUES
-     (null, '$name', '$email', password($password), '$date', '$nick', '0', null)";
-
-$resultado = mysqli_query($con, $sql_inserir);
-
-
-if (!$resultado) {
-    $_SESSION["erro"] = "Não foi possivel inserir o utilizador.";
-    header("Location: ../index.php");
     exit();
 }
 
+// Inserir utilizador
+$sql_inserir = "INSERT INTO utilizadores VALUES
+     (null, '$name', '$email', password('$password'), '$date', '$nick', '0', null)";
 
-//TABELA PERFIS
+$resultado = mysqli_query($con, $sql_inserir);
 
+if (!$resultado) {
+    $_SESSION["erro"] = "Não foi possivel inserir o utilizador.";
+    header("Location: ../frontend/registar.php");
+    exit();
+}
+
+// Buscar o utilizador recém-criado para obter o ID
 $sqlUser = "SELECT * FROM utilizadores WHERE email = '$email'";
 $resultUser = mysqli_query($con, $sqlUser);
 $userData = mysqli_fetch_assoc($resultUser);
+
+if (!$userData) {
+    $_SESSION["erro"] = "Erro ao criar conta.";
+    header("Location: ../frontend/registar.php");
+    exit();
+}
 
 $id = (int)$userData["id"];
 $foto_perfil = "default-profile.jpg";
@@ -63,15 +67,32 @@ $ocupacao = "";
 $pais = "";
 $cidade = "";
 
-
-$sql_inserir = "INSERT INTO perfis VALUES
+// Criar perfil
+$sql_inserir_perfil = "INSERT INTO perfis VALUES
      (null, '$id', '$biografia', '$foto_perfil', '$data_criacao', '$foto_capa', '$x', '$linkedin', '$github', '$ocupacao', '$pais', '$cidade')";
 
-$resultado = mysqli_query($con, $sql_inserir);
+$resultado_perfil = mysqli_query($con, $sql_inserir_perfil);
 
+if (!$resultado_perfil) {
+    $_SESSION["erro"] = "Erro ao criar perfil.";
+    header("Location: ../frontend/registar.php");
+    exit();
+}
 
-header("Location: ../index.php");
+// FAZER LOGIN AUTOMÁTICO
+// Definir todas as variáveis de sessão necessárias
+$_SESSION["id"] = $userData["id"];
+$_SESSION["nome_completo"] = $userData["nome_completo"];
+$_SESSION["email"] = $userData["email"];
+$_SESSION["data_nascimento"] = $userData["data_nascimento"];
+$_SESSION["nick"] = $userData["nick"];
+$_SESSION["id_tipos_utilizador"] = $userData["id_tipos_utilizador"];
+$_SESSION["data_criacao"] = $userData["data_criacao"];
 
+// Definir mensagem de sucesso
+$_SESSION["sucesso"] = "Conta criada com sucesso! Bem-vindo à Orange!";
 
-
+// Redirecionar para a página principal já logado
+header("Location: ../frontend/index.php");
+exit();
 ?>
