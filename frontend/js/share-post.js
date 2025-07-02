@@ -119,7 +119,121 @@ class SharePostManager {
             }
         });
     }
+    // Adicionar esta função à classe SharePostManager
+    async loadPostPreview(postId) {
+        try {
+            const response = await fetch(`../backend/get_post.php?id=${postId}`);
+            const post = await response.json();
 
+            if (post.error) {
+                throw new Error(post.error);
+            }
+
+            // Obter mídias da publicação
+            const mediaResponse = await fetch(`../backend/get_post_images?id=${postId}`);
+            const medias = await mediaResponse.json();
+
+            // Obter dados da enquete se for do tipo poll
+            let pollHTML = '';
+            if (post.tipo === 'poll') {
+                const pollResponse = await fetch(`../backend/get_poll_data.php?post_id=${postId}`);
+                const pollData = await pollResponse.json();
+
+                if (pollData && !pollData.error) {
+                    pollHTML = `
+                    <div class="share-poll-preview">
+                        <h4 class="share-poll-question">${this.escapeHtml(pollData.poll.pergunta)}</h4>
+                        <div class="share-poll-options">
+                            ${pollData.opcoes.map(opcao => `
+                                <div class="share-poll-option">
+                                    <div class="share-poll-option-bar" style="width: ${opcao.percentagem}%"></div>
+                                    <span class="share-poll-option-text">${this.escapeHtml(opcao.texto)}</span>
+                                    <span class="share-poll-option-percent">${opcao.percentagem}%</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="share-poll-meta">
+                            <span class="share-poll-total">${pollData.poll.total_votos} votos</span>
+                            <span class="share-poll-status ${pollData.poll.expirada ? 'expired' : 'active'}">
+                                ${pollData.poll.expirada ? 'Enquete encerrada' : 'Enquete ativa'}
+                            </span>
+                        </div>
+                    </div>
+                `;
+                }
+            }
+
+            // Construir HTML para mídias
+            let mediaHTML = '';
+            if (medias.length > 0) {
+                const imageMedias = medias.filter(m => m.tipo === 'image');
+                const videoMedias = medias.filter(m => m.tipo === 'video');
+
+                if (imageMedias.length > 0) {
+                    mediaHTML += `
+                    <div class="share-media-preview">
+                        <div class="share-media-count">
+                            <i class="fas fa-images"></i>
+                            ${imageMedias.length} ${imageMedias.length > 1 ? 'imagens' : 'imagem'}
+                        </div>
+                        <img src="images/publicacoes/${imageMedias[0].url}" 
+                             alt="Preview" class="share-media-thumbnail">
+                    </div>
+                `;
+                }
+
+                if (videoMedias.length > 0) {
+                    mediaHTML += `
+                    <div class="share-media-preview">
+                        <div class="share-media-count">
+                            <i class="fas fa-video"></i>
+                            ${videoMedias.length} ${videoMedias.length > 1 ? 'vídeos' : 'vídeo'}
+                        </div>
+                        <video class="share-media-thumbnail" muted playsinline>
+                            <source src="images/publicacoes/${videoMedias[0].url}" type="video/mp4">
+                        </video>
+                    </div>
+                `;
+                }
+            }
+
+            const previewHTML = `
+            <div class="share-post-preview-header">
+                <img src="images/perfil/${post.foto_perfil || 'default-profile.jpg'}" 
+                     alt="${post.nick}" class="share-post-preview-avatar">
+                <div class="share-post-preview-info">
+                    <h4>${post.nick}</h4>
+                    <p>${this.formatDate(post.data_criacao)}</p>
+                </div>
+            </div>
+            ${post.conteudo ? `<p class="share-post-preview-content">${this.escapeHtml(post.conteudo)}</p>` : ''}
+            ${pollHTML}
+            ${mediaHTML}
+        `;
+
+            document.getElementById('sharePostPreview').innerHTML = previewHTML;
+
+            // Inicializar player de vídeo se existir
+            const video = document.querySelector('.share-media-thumbnail');
+            if (video) {
+                video.volume = 0;
+                video.addEventListener('click', () => {
+                    if (video.paused) {
+                        video.play();
+                    } else {
+                        video.pause();
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Erro ao carregar preview:', error);
+            document.getElementById('sharePostPreview').innerHTML = `
+            <p style="color: var(--color-danger); text-align: center;">
+                Erro ao carregar preview da publicação
+            </p>
+        `;
+        }
+    }
     async openModal(postId) {
         this.currentPostId = postId;
         this.selectedUsers.clear();
@@ -183,7 +297,7 @@ class SharePostManager {
 
     async loadUsers() {
         const usersList = document.getElementById('shareUsersList');
-        
+
         try {
             const response = await fetch('../backend/search_users.php?q=');
             const users = await response.json();
@@ -204,16 +318,16 @@ class SharePostManager {
 
     filterUsers(searchTerm) {
         const term = searchTerm.toLowerCase().trim();
-        
+
         if (term === '') {
             this.filteredUsers = this.allUsers;
         } else {
-            this.filteredUsers = this.allUsers.filter(user => 
+            this.filteredUsers = this.allUsers.filter(user =>
                 user.nome_completo.toLowerCase().includes(term) ||
                 user.nick.toLowerCase().includes(term)
             );
         }
-        
+
         this.renderUsers();
     }
 
@@ -288,7 +402,7 @@ class SharePostManager {
         this.isLoading = true;
         const sendBtn = document.getElementById('shareSendBtn');
         const originalText = sendBtn.innerHTML;
-        
+
         sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
         sendBtn.disabled = true;
 
@@ -308,7 +422,7 @@ class SharePostManager {
             if (result.success) {
                 this.showToast(`Publicação partilhada com ${result.shared_count} utilizador(es)!`, 'success');
                 this.closeModal();
-                
+
                 // Animação de sucesso no botão de partilha original
                 const shareButton = document.querySelector(`[data-post-id="${this.currentPostId}"] .share-btn`);
                 if (shareButton) {
@@ -369,3 +483,4 @@ function openShareModal(postId) {
         window.sharePostManager.openModal(postId);
     }
 }
+
