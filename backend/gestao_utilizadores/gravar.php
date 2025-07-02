@@ -10,7 +10,6 @@ require "../ligabd.php";
 
 // Obter e sanitizar os dados
 $id = (int)$_POST["id"];
-$email = trim($_POST["email"]);
 $password = trim($_POST["password"]);
 $id_tipos_utilizador = (int)$_POST["id_tipos_utilizador"];
 
@@ -20,13 +19,6 @@ $errors = [];
 // Validar ID
 if ($id <= 0) {
     $errors[] = "ID de utilizador inválido.";
-}
-
-// Validar email
-if (empty($email)) {
-    $errors[] = "O email é obrigatório.";
-} elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    $errors[] = "O formato do email é inválido.";
 }
 
 // Validar password (se fornecida)
@@ -59,17 +51,6 @@ if (!$result_check || mysqli_num_rows($result_check) == 0) {
 $user_data = mysqli_fetch_assoc($result_check);
 $nick = $user_data['nick'];
 
-// Verificar se email já está em uso por outro utilizador
-$email_escaped = mysqli_real_escape_string($con, $email);
-$sql_check_email = "SELECT id FROM utilizadores WHERE email = '$email_escaped' AND id != $id";
-$result_email = mysqli_query($con, $sql_check_email);
-
-if (mysqli_num_rows($result_email) > 0) {
-    $_SESSION["erro"] = "O email '$email' já está em uso por outro utilizador.";
-    header("Location: ../../frontend/editar_utilizadores.php");
-    exit();
-}
-
 // Proteger o admin principal de ser rebaixado
 if ($nick == "admin" && $id_tipos_utilizador != 2) {
     $_SESSION["erro"] = "Não é possível alterar o tipo do utilizador admin principal.";
@@ -87,7 +68,6 @@ try {
 
     $sql_gravar = "UPDATE utilizadores SET 
                    $password_clause 
-                   email = '$email_escaped', 
                    id_tipos_utilizador = $id_tipos_utilizador 
                    WHERE id = $id";
 
