@@ -39,6 +39,76 @@ function getCommentCount($con, $postId)
     return $data['count'];
 }
 
+// Função para buscar dados da poll
+function getPollData($con, $publicacaoId, $userId = null)
+{
+    $sql = "SELECT p.id, p.pergunta, p.data_expiracao, p.total_votos,
+                   po.id as opcao_id, po.opcao_texto, po.votos, po.ordem
+            FROM polls p
+            JOIN poll_opcoes po ON p.id = po.poll_id
+            WHERE p.publicacao_id = ?
+            ORDER BY po.ordem ASC";
+    
+    $stmt = $con->prepare($sql);
+    $stmt->bind_param("i", $publicacaoId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 0) {
+        return null;
+    }
+
+    $opcoes = [];
+    $pollData = null;
+    
+    while ($row = $result->fetch_assoc()) {
+        if (!$pollData) {
+            $pollData = [
+                'id' => $row['id'],
+                'pergunta' => $row['pergunta'],
+                'data_expiracao' => $row['data_expiracao'],
+                'total_votos' => intval($row['total_votos']),
+                'expirada' => strtotime($row['data_expiracao']) < time()
+            ];
+        }
+        
+        $opcoes[] = [
+            'id' => intval($row['opcao_id']),
+            'texto' => $row['opcao_texto'],
+            'votos' => intval($row['votos']),
+            'percentagem' => $pollData['total_votos'] > 0 ? 
+                round((intval($row['votos']) / $pollData['total_votos']) * 100, 1) : 0
+        ];
+    }
+
+    // Verificar se o usuário já votou
+    $userVoted = false;
+    $userVotedOption = null;
+    
+    if ($userId > 0) {
+        $sqlUserVote = "SELECT opcao_id FROM poll_votos WHERE poll_id = ? AND utilizador_id = ?";
+        $stmtUserVote = $con->prepare($sqlUserVote);
+        if ($stmtUserVote) {
+            $stmtUserVote->bind_param("ii", $pollData['id'], $userId);
+            $stmtUserVote->execute();
+            $voteResult = $stmtUserVote->get_result();
+            
+            if ($voteResult->num_rows > 0) {
+                $userVoted = true;
+                $voteData = $voteResult->fetch_assoc();
+                $userVotedOption = intval($voteData['opcao_id']);
+            }
+        }
+    }
+
+    return [
+        'poll' => $pollData,
+        'opcoes' => $opcoes,
+        'user_voted' => $userVoted,
+        'user_voted_option' => $userVotedOption
+    ];
+}
+
 // Verificar se o utilizador está autenticado
 if (!isset($_SESSION["id"])) {
     header("Location: login.php");
@@ -95,6 +165,7 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="css/style_perfil.css">
     <link rel="stylesheet" href="css/style_index.css">
+    <link rel="stylesheet" href="css/style_polls.css">
     <link rel="stylesheet" href="css/video_player.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="images/favicon/favicon_orange.png">
@@ -513,7 +584,49 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
                                 </div>
                             </div>
                             <div class="post-content">
-                                <p><?php echo nl2br(makeLinksClickable(htmlspecialchars($publicacao['conteudo']))); ?></p>
+                                <?php if (!empty($publicacao['conteudo'])): ?>
+                                    <p><?php echo nl2br(makeLinksClickable(htmlspecialchars($publicacao['conteudo']))); ?></p>
+                                <?php endif; ?>
+
+                                <?php if ($publicacao['tipo'] === 'poll'): ?>
+                                    <?php 
+                                    $pollData = getPollData($con, $publicacao['id_publicacao'], $_SESSION['id']);
+                                    if ($pollData): 
+                                    ?>
+                                        <div class="poll-container" data-poll-id="<?php echo $pollData['poll']['id']; ?>">
+                                            <div class="poll-question"><?php echo htmlspecialchars($pollData['poll']['pergunta']); ?></div>
+                                            
+                                            <div class="poll-options">
+                                                <?php foreach ($pollData['opcoes'] as $opcao): ?>
+                                                    <div class="poll-option <?php echo ($pollData['user_voted'] || $pollData['poll']['expirada']) ? 'disabled voted' : ''; ?> <?php echo ($pollData['user_voted_option'] == $opcao['id']) ? 'user-voted' : ''; ?>" 
+                                                         data-opcao-id="<?php echo $opcao['id']; ?>"
+                                                         <?php if (!$pollData['user_voted'] && !$pollData['poll']['expirada']): ?>
+                                                             onclick="voteInPoll(<?php echo $pollData['poll']['id']; ?>, <?php echo $opcao['id']; ?>)"
+                                                         <?php endif; ?>>
+                                                        <div class="poll-option-progress" style="width: <?php echo $opcao['percentagem']; ?>%"></div>
+                                                        <div class="poll-option-content">
+                                                            <span class="poll-option-text"><?php echo htmlspecialchars($opcao['texto']); ?></span>
+                                                            <?php if ($pollData['user_voted'] || $pollData['poll']['expirada']): ?>
+                                                                <div class="poll-option-stats">
+                                                                    <span class="poll-option-percentage"><?php echo $opcao['percentagem']; ?>%</span>
+                                                                    <span class="poll-option-votes"><?php echo $opcao['votos']; ?> voto<?php echo $opcao['votos'] !== 1 ? 's' : ''; ?></span>
+                                                                </div>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                            
+                                            <div class="poll-meta">
+                                                <span class="poll-total-votes"><?php echo $pollData['poll']['total_votos']; ?> voto<?php echo $pollData['poll']['total_votos'] !== 1 ? 's' : ''; ?></span>
+                                                <span class="poll-time-left <?php echo $pollData['poll']['expirada'] ? 'poll-expired' : ''; ?>">
+                                                    <i class="fas fa-clock"></i>
+                                                    <?php echo $pollData['poll']['expirada'] ? 'Poll encerrada' : 'Poll ativa'; ?>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
+                                <?php endif; ?>
 
                                 <?php if (!empty($images)): ?>
                                     <div class="post-images">
@@ -644,8 +757,93 @@ $resultPublicacoes = mysqli_query($con, $sqlPublicacoes);
 
     <!-- Include Video Player JavaScript -->
     <script src="js/video-player.js"></script>
+    <script src="js/polls.js"></script>
 
     <script>
+
+        // Função para votar em uma poll
+        async function voteInPoll(pollId, opcaoId) {
+            try {
+                const optionElement = document.querySelector(`[data-opcao-id="${opcaoId}"]`);
+                if (optionElement) {
+                    optionElement.classList.add('voting');
+                }
+
+                const formData = new FormData();
+                formData.append('poll_id', pollId);
+                formData.append('opcao_id', opcaoId);
+
+                const response = await fetch('../backend/votar_poll.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    updatePollDisplay(pollId, data);
+                    showToast('Voto registado com sucesso!');
+                } else {
+                    showToast(data.message || 'Erro ao votar', 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao votar:', error);
+                showToast('Erro de conexão', 'error');
+            } finally {
+                if (optionElement) {
+                    optionElement.classList.remove('voting');
+                }
+            }
+        }
+
+        function updatePollDisplay(pollId, data) {
+            const pollContainer = document.querySelector(`[data-poll-id="${pollId}"]`);
+            if (!pollContainer) return;
+
+            // Atualizar opções
+            data.opcoes.forEach(opcao => {
+                const optionElement = pollContainer.querySelector(`[data-opcao-id="${opcao.id}"]`);
+                if (optionElement) {
+                    // Atualizar barra de progresso
+                    const progressBar = optionElement.querySelector('.poll-option-progress');
+                    if (progressBar) {
+                        progressBar.style.width = `${opcao.percentagem}%`;
+                    }
+
+                    // Atualizar estatísticas
+                    const percentage = optionElement.querySelector('.poll-option-percentage');
+                    const votes = optionElement.querySelector('.poll-option-votes');
+                    
+                    if (percentage) {
+                        percentage.textContent = `${opcao.percentagem}%`;
+                    }
+                    
+                    if (votes) {
+                        votes.textContent = `${opcao.votos} voto${opcao.votos !== 1 ? 's' : ''}`;
+                    }
+
+                    // Marcar como votada e desabilitar
+                    optionElement.classList.add('voted', 'disabled');
+                    optionElement.style.pointerEvents = 'none';
+
+                    // Destacar opção líder
+                    if (opcao.percentagem > 0 && opcao.votos === Math.max(...data.opcoes.map(o => o.votos))) {
+                        optionElement.classList.add('leading');
+                    }
+
+                    // Se for a opção votada pelo usuário
+                    if (opcao.user_voted) {
+                        optionElement.classList.add('user-voted');
+                    }
+                }
+            });
+
+            // Atualizar total de votos
+            const totalVotesElement = pollContainer.querySelector('.poll-total-votes');
+            if (totalVotesElement) {
+                totalVotesElement.textContent = `${data.total_votos} voto${data.total_votos !== 1 ? 's' : ''}`;
+            }
+        }
 
         // Variáveis globais para controle da confirmação
         let pendingDelete = {

@@ -463,7 +463,7 @@ $perfilData = mysqli_fetch_assoc($resultPerfil);
                 ?>
                 <div class="poll-option <?php echo implode(' ', $optionClasses); ?>" 
                      data-opcao-id="<?php echo htmlspecialchars($opcao['id']); ?>"
-                     <?php echo $onclickAttr; ?>>
+                     <?php echo $onclickAttr ?>>
                     
                     <div class="poll-option-progress" 
                          style="width: <?php echo htmlspecialchars($opcao['percentagem']); ?>%"></div>

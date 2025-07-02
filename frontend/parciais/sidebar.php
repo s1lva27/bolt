@@ -56,7 +56,9 @@ if ($currentUserId) {
                     <?php endif; ?>
                 </a></li>
             <li><a href="itens_salvos.php"><i class="fas fa-bookmark"></i> <span>Itens Salvos</span></a></li>
-            <li><a href="#"><i class="fas fa-chart-line"></i> <span>Estatisticas</span></a></li>
+            <?php if (isset($_SESSION["id"]) && $_SESSION["id_tipos_utilizador"] == 2): ?>
+                <li><a href="estatisticas.php"><i class="fas fa-chart-line"></i> <span>Estatísticas</span></a></li>
+            <?php endif; ?>
         </ul>
     </nav>
 </aside>

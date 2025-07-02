@@ -4,7 +4,7 @@
     <div class="search-bar">
         <form action="pesquisar.php" method="GET">
             <i class="fas fa-search"></i>
-            <input type="text" name="pesquisa" placeholder="Pesquise por pessoas..."
+            <input type="text" name="pesquisa" placeholder="Pesquise por pessoas e publicações..."
                 value="<?php echo htmlspecialchars($_GET['pesquisa'] ?? ''); ?>">
             <button type="submit">Pesquisar</button>
         </form>
